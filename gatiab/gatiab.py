@@ -29,20 +29,34 @@ molar_mass={ 'h2o':18.0152833,
 
 def get_zatm(P_hl, T_fl, M_air, g, h2o_mole_frac_fl=None, P_fl = None, M_h2o=None, method='barometric'):
     """
-    Description : Compute the zatm knowing the pressure and temperature variability
-    half level -> at layer altitude
-    full level -> mean between 2 layers
+    Get z profil knowing the pressure and temperature variability
 
-    P_hl : half level pressure
-    T_fl : full level temperature
-    M_air : dry air molar mass in Kg mol-1
-    g : gravity constant in m s-2
-    h2o_mole_frac_fl : full level h2o mole fraction (needed if hypsometric method is chosen)
-    P_fl : full level pressure (needed if hypsometric method is chosen)
-    M_h2o : h2o molar mass in Kg mol-1
-    method : 'barometric' or 'hypsometric'
+    - half level -> at layer altitude
+    - full level -> mean between 2 layers
 
-    return the z_atm grid profil in Km 
+    Parameters
+    ----------
+    P_hl : np.ndarray
+        Half level pressure
+    T_fl : np.ndarray
+        Full level temperature
+    M_air : float
+        Dry air molar mass in Kg mol-1
+    g : float
+        Gravity constant in m s-2
+    h2o_mole_frac_fl : np.ndarray
+        Full level h2o mole fraction (needed if hypsometric method is chosen)
+    P_fl : np.ndarray
+        Full level pressure (needed if hypsometric method is chosen)
+    M_h2o : float
+        H2O molar mass in Kg mol-1
+    method : str
+        Choose between -> 'barometric' or 'hypsometric'
+
+    Returns
+    -------
+    Z : np.ndarray
+        z_atm grid profil in Km 
     """
 
     if method != 'barometric' and method != 'hypsometric':
@@ -117,16 +131,31 @@ def check_input_ckdmip2od(gas, wvn_min, wvn_max, ckdmip_files):
 
 def ckdmip2od(gas, dir_ckdmip, atm='afglus', wvn_min = 2499.99, wvn_max=50000, chunk=500,
               save=False, dir_save='./'):
-    '''
-    Description : Use ckdmip shortwave idealized look-up tables to generate optical depth for a given atm
+    """
+    Use ckdmip shortwave idealized look-up tables to generate optical depth for a given atm
 
-    gas              : choose between -> 'H2O', 'CO2', 'O2', 'O3', 'N2O', 'N2', 'CH4'
-    dir_ckdmip       : directory where are located ckdmip look-up tables
-    atm              : choose between -> 'afglus', 'afglt', 'afglms', 'afglmw', 'afglss', 'afglsw'
-    wvn_min, wvn_max : wavenumber min and max interval values
-    chunk            : number of wavenumber considered at each iteration (wavenumber dim is splited during interpolation)
-    save             : if not False, output directory where to save the optical depth generated lut
-    '''
+    Parameters
+    ----------
+    gas : str
+        Choose between -> 'H2O', 'CO2', 'O2', 'O3', 'N2O', 'N2', 'CH4'
+    dir_ckdmip : str
+        Directory where are located ckdmip look-up tables
+    atm : str, optional
+        Choose between -> 'afglus', 'afglt', 'afglms', 'afglmw', 'afglss', 'afglsw'
+    wvn_min, wvn_max : float, optional
+        Wavenumber min and max interval values
+    chunk : float, optional
+        Number of wavenumber considered at each iteration (wavenumber dim is
+        splited during interpolation)
+    save : bool, optional
+        If not False, output directory where to save the optical depth generated lut
+
+    Returns
+    -------
+    L : MLUT
+        Look-up table with the gas optical depth for the specified atmosphere
+    
+    """
 
     files_name = "ckdmip_idealized_sw_spectra_" + gas.lower() + "_const*.h5"
     ckdmip_files = sorted(glob.glob(dir_ckdmip + files_name))
@@ -252,33 +281,40 @@ def ckdmip2od(gas, dir_ckdmip, atm='afglus', wvn_min = 2499.99, wvn_max=50000, c
 
 
 class Gatiab(object):
-    '''
+    """
     Initialization of the Gatiab object
 
-    od_filename : path to optical depth LUT (created using ckdmip2od function)
+    Parameters
+    ----------
+    od_filename : path to optical depth netcdf4 LUT (created using ckdmip2od function)
 
-    '''
+    """
     
     def __init__(self, od_filename):
 
-        od = read_mlut(od_filename)
-
+        od = xr.open_dataset(od_filename)
         self.od = od
         self.gas = od.attrs['name'].split(' ')[-1] # gas name
         self.atm = od.attrs['experiment'].split(' ')[0] # atmosphere name
-        self.p_gas_hl = od['P_hl'][:] * od['mole_fraction_hl'][:] # half level gas pressure
-        self.dens_gas_hl = (self.p_gas_hl) / (constants.Boltzmann*od['T_hl'][:]) * 1e-6 # half level gas density in cm-3
+        self.wavenumber = od['wavenumber'].data[:] # in cm-1
+        self.half_level = od['half_level'].data[:]
+        self.P_hl = od['P_hl'].data[:] # air pressure profil
+        self.T_hl = od['T_hl'].data[:] # temperature profil
+        self.z_atm = od['z_atm'].data[:] # z profil as function of half_level
+        self.mole_fraction_hl = od['mole_fraction_hl'].data[:]
+        self.p_gas_hl = self.P_hl* self.mole_fraction_hl # half level gas pressure
+        self.dens_gas_hl = (self.p_gas_hl) / (constants.Boltzmann*self.T_hl) * 1e-6 # half level gas density in cm-3
 
 
     def get_gas_content(self):
-        '''
+        """
         Compute gas content. In DU for O3, in g cm-2 for other gas
-        '''
+        """
         if self.gas == 'O3':
-            gas_content = (1/2.6867e16)*(simpson(y=self.dens_gas_hl, x=-self.od['z_atm'][:])*1e5)
+            gas_content = (1/2.6867e16)*(simpson(y=self.dens_gas_hl, x=-self.z_atm)*1e5)
         else:
             gas_content = (molar_mass[self.gas.lower()]/constants.Avogadro)* \
-                (simpson(y=self.dens_gas_hl, x=-self.od['z_atm'][:])*1e5)
+                (simpson(y=self.dens_gas_hl, x=-self.z_atm)*1e5)
         return gas_content
 
 
@@ -286,11 +322,26 @@ class Gatiab(object):
         """
         Compute gaseous transmissions
         
-        gas_content : numpy array with gas content, in dopson for O3 and in g m-2 for other gas
-        air_mass    : numpy array with ratio of slant path optical depth and vertical optical depth
-        p0          : numpy array with several ground pressure (p0) values in hPa
-        srf_wvl     : SRF wavelengths numpy arrays into an iband list
-        rsrf        : SRF values numpy arrays into an iband list
+        Parameters
+        ----------
+        gas_content : np.ndarray
+            Gas content, in dopson for O3 and in g m-2 for other gas
+        air_mass : np.ndarray
+            Ratio of slant path optical depth and vertical optical depth
+        p0 : np.ndarray
+            Ground pressure(s) value(s) in hPa
+        srf_wvl : list
+            SRF wavelengths np.ndarray into an iband list
+        rsrf : list
+            SRF values np.ndarray into an iband list
+        save : bool, optional
+            Save output in netcdf format.
+
+        Returns
+        -------
+        L : xr.DataArray
+            Look-up table with the gas transmission as function of the
+            instrument band, airmass, gas content and ground level pressure
         """
 
         n_U = len(gas_content)
@@ -298,40 +349,41 @@ class Gatiab(object):
         n_M = len(air_mass)
         n_p0 = len(p0)
 
-        dens_gas_lut = LUT(self.dens_gas_hl, axes=[self.od['P_hl'][:]], names=['P_hl'])
-        half_level_lut = LUT(self.od.axes['half_level'][:], axes=[self.od['P_hl'][:]], names=['P_hl'])
+        dens_gas_FPhl = interp1d(self.P_hl, self.dens_gas_hl, bounds_error=False, fill_value='extrapolate')
+        half_level_FPhl = interp1d(self.P_hl, self.half_level, bounds_error=False, fill_value='extrapolate')
 
         trans_gas = np.zeros((nbands,n_U,n_M,n_p0), dtype=np.float64)
 
         for iband in range (0, nbands):
-            wvn_bi = 1/srf_wvl[iband]*1e7
-            lut_gas_bi = self.od.sub({'wavenumber':Idx(lambda x: np.logical_and(x >=np.min(wvn_bi)-1, x <=np.max(wvn_bi)+1))})
-            isrf_int =interp1d(wvn_bi, rsrf[iband], bounds_error=False, fill_value=0.)(lut_gas_bi.axes['wavenumber'])
+            wvn_bi = np.float64(1.)/srf_wvl[iband].astype(np.float64)*1e7
+            wvn_bi_extented = self.wavenumber[(lambda x: np.logical_and(x >=np.min(wvn_bi)-1, x <=np.max(wvn_bi)+1))(self.wavenumber)]
+            lut_gas_bi = self.od.sel(wavenumber = wvn_bi_extented)
+            isrf_int =interp1d(wvn_bi, rsrf[iband], bounds_error=False, fill_value=0.)(wvn_bi_extented)
             for iU in range (0, n_U):
                 for ip in range (0, n_p0):
-                    p_ip = np.sort(np.concatenate((self.od['P_hl'][(self.od['P_hl'][:]<p0[ip]*1e2)], np.array([p0[ip]*1e2], dtype='float32') )))
-                    half_level_ip = half_level_lut[Idx(p_ip)]
-                    dens_gas_ip = dens_gas_lut[Idx(p_ip)].astype(np.float64)
-                    z_atm_ib = self.od['z_atm'][Idx(half_level_ip)]
+                    p_ip = np.sort(np.concatenate((self.P_hl[self.P_hl[:]<p0[ip]*1e2], np.array([p0[ip]*1e2], dtype='float32') )))
+                    half_level_ip = half_level_FPhl(p_ip)
+                    dens_gas_ip = dens_gas_FPhl(p_ip).astype(np.float64)
+                    z_atm_ib = interp1d(self.half_level, self.z_atm, bounds_error=False, fill_value='extrapolate')(half_level_ip)
                     
                     if self.gas == 'O3':
-                        dens_gas_iUp =  dens_gas_ip * (2.6867e16 * gas_content[iU] / (simpson(y=dens_gas_ip, x=-self.od['z_atm'][Idx(half_level_ip)]) * 1e5))
+                        dens_gas_iUp =  dens_gas_ip * (2.6867e16 * gas_content[iU] / (simpson(y=dens_gas_ip, x=-z_atm_ib) * 1e5))
                     else:
                         dens_gas_iUp =  dens_gas_ip * (gas_content[iU]/ molar_mass[self.gas.lower()] * constants.Avogadro / (simpson(y=dens_gas_ip, x=-z_atm_ib) * 1e5))
                     
-                    # convert to abs coeff
+                    # convert to abs coeff then interpolate
                     ot = lut_gas_bi['optical_depth'].data.astype(np.float64)
-                    ot = np.append(np.zeros((1,len(lut_gas_bi.axes['wavenumber']))), ot, axis=0).astype(np.float64)
+                    ot = np.append(np.zeros((1,len(wvn_bi_extented))), ot, axis=0).astype(np.float64)
                     ot = np.swapaxes(ot, 0,1)
-                    dz = diff1(self.od['z_atm'][:]).astype(np.float64)
+                    dz = diff1(self.z_atm).astype(np.float64)
                     k = abs(ot/dz)
                     k[np.isnan(k)] = 0
                     sl = slice(None,None,1)
                     k = k[:,sl]
                     C_abs = np.swapaxes(k, 0,1)
-                    C_abs_lut = LUT(C_abs,axes=[self.od['z_atm'][:], lut_gas_bi.axes['wavenumber'][:]], names=['z_atm', 'wavenumber'])
+                    C_abs_ib = make_interp_spline(self.z_atm[::-1], C_abs[::-1,:], k=1, axis=0)(z_atm_ib[::-1])[::-1,:]
+
                     # reconvert to optical depth
-                    C_abs_ib = C_abs_lut[Idx(z_atm_ib),:]
                     dz_ib = np.abs(diff1(z_atm_ib))
                     od_ib = dz_ib[:,None] * C_abs_ib
 
@@ -345,8 +397,8 @@ class Gatiab(object):
                         tau_wM = tau_w * air_mass[iM]
                         trans_wM = np.exp(-tau_wM)
                         # simpson to consider the case where dw is varying, this is the case at 625 and 1941.75 nm
-                        num = simpson(y=trans_wM[isrf_int>0]*isrf_int[isrf_int>0], x=lut_gas_bi.axes['wavenumber'][isrf_int>0])
-                        den = simpson(y=isrf_int[isrf_int>0], x=lut_gas_bi.axes['wavenumber'][isrf_int>0])
+                        num = simpson(y=trans_wM[isrf_int>0]*isrf_int[isrf_int>0], x=wvn_bi_extented[isrf_int>0])
+                        den = simpson(y=isrf_int[isrf_int>0], x=wvn_bi_extented[isrf_int>0])
                         trans = num/den
                         trans_gas[iband,iU,iM,ip] = trans
 
@@ -355,11 +407,18 @@ class Gatiab(object):
             bands.append(round(simpson(srf_wvl[iband]*rsrf[iband], x=srf_wvl[iband])/simpson(rsrf[iband], x=srf_wvl[iband]), 1))
         bands = np.array(bands, dtype=np.float64)
 
-        mlut = MLUT()
-        mlut.add_axis('bands', bands)
-        mlut.add_axis('gas_content', gas_content)
-        mlut.add_axis('air_mass', air_mass)
-        mlut.add_axis('p0', p0)
-        mlut.add_dataset('transmission', trans_gas.astype(np.float32), axnames=['bands', 'gas_content', 'air_mass', 'p0'])
+        ds = xr.Dataset()
+        ds['trans'] = xr.DataArray(trans_gas.astype(np.float32),
+                                                     dims=["lambda", "U", "M", "p0"],
+                                                     coords={'lambda':bands, 'U':gas_content, 'M':air_mass, 'p0':p0})
+        
+        ds['lambda'].attrs = {'units':'Nanometers' , 'description':'Instrument averaged bands'}
+        if self.gas == 'O3': ds['U'].attrs = {'units':'Dobson' , 'description':'Total column content of the gas'}
+        else: ds['U'].attrs = {'units':'Gramme per square centimeter' , 'description':'Total column content of the gas'}
+        ds['M'].attrs = {'units':'None' , 'description':'Airmass i.e. ratio of slant path optical depth and vertical optical depth'}
+        ds['p0'].attrs = {'units':'Hectopascal' , 'description':'Pressure at ground level'}
+        ds['trans'].attrs = {'units':'None' , 'description': self.gas + ' transmission'}
 
-        return mlut
+        date = datetime.now().strftime("%Y-%m-%d")
+        ds.attrs = {'atm':self.atm, 'date':date, 'source': 'Created using the Gatiab module'}
+        return ds
