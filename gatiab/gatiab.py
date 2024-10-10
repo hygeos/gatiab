@@ -10,6 +10,7 @@ from tqdm import tqdm
 from scipy.interpolate import make_interp_spline, interp1d
 from scipy.integrate import simpson
 from datetime import datetime
+from gatiab.interpolate import interp
 
 AccelDueToGravity  = 9.80665 # m s-2
 MolarMassAir       = 28.970  # g mol-1 dry air
@@ -26,6 +27,26 @@ molar_mass={ 'h2o':18.0152833,
              'hcfc22': 86.469,
              'ccl4':153.823,
              'no2': 46.0055}
+
+def get_binary_mat(ndim):
+    """
+    In progress...
+    """
+    
+    counter = np.zeros(ndim)
+    idb = np.zeros(ndim)
+    bin_array = np.zeros((ndim**2,ndim), dtype=np.int32)
+    for i in range (0, ndim**2):
+        for j in range(0,ndim):
+            if (counter[j] == j+1):
+                if (idb[j] == 0): idb[j] = 1
+                else: idb[j] = 0
+                counter[j] = 0
+            bin_array[i,j] = idb[j]
+        counter= counter+1
+
+    return bin_array
+
 
 def get_zatm(P_hl, T_fl, M_air, g, h2o_mole_frac_fl=None, P_fl = None, M_h2o=None, method='barometric'):
     """
@@ -219,8 +240,6 @@ def ckdmip2od(gas, dir_ckdmip, atm='afglus', wvn_min = 2499.99, wvn_max=50000, c
             if reste < 0: nwc_end += nwc - np.abs(reste)
             else: nwc_end += nwc
 
-            # print(nwc_ini, nwc_end)
-
             C_ext_iw = np.zeros((nP, nT_unique, nwc_end-nwc_ini,nmf), dtype=np.float64)
             for imf in range (0, nmf):
                 OD_gas_imf_iw = OD_gas[:,:,nwc_ini:nwc_end,imf]
@@ -232,15 +251,63 @@ def ckdmip2od(gas, dir_ckdmip, atm='afglus', wvn_min = 2499.99, wvn_max=50000, c
                             ( mole_fraction[imf] * (P_hl[ilvl+1] - P_hl[ilvl] ) )
 
                 for ip in range (0, nP):
-                        C_ext_iw[ip,:,:,imf] = make_interp_spline(T_fl[:,ip], C_ext_iw_imf_bis[:,ip,:], k=1, axis=0)(T_fl_unique)
+                        indT = np.searchsorted(T_fl_unique, T_fl[:,ip])
+                        C_ext_iw[ip,indT,:,imf] = C_ext_iw_imf_bis[:,ip,:]
 
-            lut_C_ext = LUT(C_ext_iw, axes=[P_fl,T_fl_unique,wavn[nwc_ini:nwc_end],mole_fraction],
-                            names=['P', 'T', 'wavenumber','mole_fraction'])
 
-            for iz in range (0,nzafgl-1):
-                if (P_afgl_fl[iz] < np.max(P_fl)) and (P_afgl_fl[iz] > np.min(P_fl)):
-                    if (gas == 'H2O'): C_ext_gas[iz,nwc_ini:nwc_end] = lut_C_ext[Idx(P_afgl_fl[iz]), Idx(T_afgl_fl[iz]), :, Idx(mole_fraction_afgl_fl[iz])]
-                    else : C_ext_gas[iz,nwc_ini:nwc_end] = lut_C_ext[Idx(P_afgl_fl[iz]), Idx(T_afgl_fl[iz]), :, 0]
+            # ==  Method with luts
+            # lut_C_ext = LUT(C_ext_iw, axes=[P_fl,T_fl_unique,wavn[nwc_ini:nwc_end],mole_fraction],
+            #                 names=['P', 'T', 'wavenumber','mole_fraction'])
+
+            # cond = np.logical_and(P_afgl_fl< np.max(P_fl), P_afgl_fl > np.min(P_fl))
+            # if (gas == 'H2O'): C_ext_gas[cond,nwc_ini:nwc_end] = lut_C_ext[Idx(P_afgl_fl[cond]), Idx(T_afgl_fl[cond]), :, Idx(mole_fraction_afgl_fl[cond])]
+            # else : C_ext_gas[cond,nwc_ini:nwc_end] = lut_C_ext[Idx(P_afgl_fl[cond]), Idx(T_afgl_fl[cond]), :, 0]
+
+            # ==  Other method based on luts
+            # cond = np.logical_and(P_afgl_fl< np.max(P_fl), P_afgl_fl > np.min(P_fl))
+            # if (gas == 'H2O'): C_ext_gas[cond,nwc_ini:nwc_end] = lut_C_ext[Idx(P_afgl_fl[cond]), Idx(T_afgl_fl[cond]), :, Idx(mole_fraction_afgl_fl[cond])]
+            # else :
+            #     #C_ext_gas[cond,nwc_ini:nwc_end] = lut_C_ext[Idx(P_afgl_fl[cond]), Idx(T_afgl_fl[cond]), :, 0]
+            #     idf_pfl = interp1d(P_fl, np.arange(nP), bounds_error=True)(P_afgl_fl[cond])
+            #     idf_tfl = interp1d(T_fl_unique, np.arange(nT_unique), bounds_error=True)(T_afgl_fl[cond])
+            #     #idf_wl = np.arange(nwavn)
+
+            #     keys_all = [idf_pfl, idf_tfl, slice(None)]
+            #     keys = [idf_pfl, idf_tfl]
+            #     nkeys = len(keys)
+
+            #     bmat = get_binary_mat(nkeys)
+            #     res = 0
+            #     for iter in range(0, nkeys**2):
+            #         fac=1
+            #         k = []
+            #         for ik in range (0, nkeys):
+            #             k.append(np.floor(keys[ik]).astype(np.int32) + bmat[iter,ik])
+            #             diff = np.abs(k[ik] - keys[ik])
+            #             fac *= (1-diff)
+            #             keys_all[ik] = k[ik]
+            #         res += fac[:,None] * C_ext_iw[:,:,:,0][tuple(keys_all)]
+
+
+            # == Method with xarray and hygeos core module
+            if (gas == 'H2O'):
+                lut_C_ext = xr.DataArray(C_ext_iw,
+                                         dims=['P', 'T', 'wvn','mf'],
+                                         coords={'P':P_fl, 'T':T_fl_unique, 'wvn':wavn[nwc_ini:nwc_end], 'mf':mole_fraction},)
+            else:
+                lut_C_ext = xr.DataArray(C_ext_iw[:,:,:,0],
+                                         dims=['P', 'T', 'wvn'],
+                                         coords={'P':P_fl, 'T':T_fl_unique, 'wvn':wavn[nwc_ini:nwc_end]},)
+
+            cond = np.logical_and(P_afgl_fl< np.max(P_fl), P_afgl_fl > np.min(P_fl))
+            if (gas == 'H2O'):
+                C_ext_gas[cond,nwc_ini:nwc_end] = interp(lut_C_ext, interp={'P':xr.DataArray(P_afgl_fl[cond]),
+                                                                            'T':xr.DataArray(T_afgl_fl[cond]),
+                                                                            'mf':xr.DataArray(mole_fraction_afgl_fl[cond])})
+            else :
+                C_ext_gas[cond,nwc_ini:nwc_end] = interp(lut_C_ext, interp={'P':xr.DataArray(P_afgl_fl[cond]),
+                                                                            'T':xr.DataArray(T_afgl_fl[cond])})
+                
             nwc_ini = nwc_end
             bar_wavn.update(1)
 
