@@ -10,7 +10,6 @@ from tqdm import tqdm
 from scipy.interpolate import make_interp_spline, interp1d
 from scipy.integrate import simpson
 from datetime import datetime
-from gatiab.interpolate import interp
 
 AccelDueToGravity  = 9.80665 # m s-2
 MolarMassAir       = 28.970  # g mol-1 dry air
@@ -30,7 +29,7 @@ molar_mass={ 'h2o':18.0152833,
 
 def get_binary_mat(ndim):
     """
-    In progress...
+    Compute matrix filled with binary values
     """
     
     counter = np.zeros(ndim)
@@ -47,6 +46,78 @@ def get_binary_mat(ndim):
 
     return bin_array
 
+def vec_float_indexing(data, keys):
+    """
+    Perform vectorized indexing with float scalars/1d arrays
+
+    - Method based on Idx of luts module, see: https://github.com/hygeos/luts
+    - Non slice objects on keys list must be all scalars or all 1d arrays with same size
+
+    Parameters
+    ----------
+    data : np.ndarray
+        The array to be indexed
+    keys : list
+        List with the scalars or 1darrays indices
+    
+    Returns
+    -------
+    R : np.ndarray
+        The indexed array
+    
+    Examples
+    --------
+    >>> m1 = np.arange(6).reshape(3,2)
+    >>> m1
+    array([[0, 1],
+          [2, 3],
+          [4, 5]])
+    >>> m2 = vec_float_indexing(m1, [np.array([0.8, 1.1, 1.5]), slice(None)])
+    >>> m2
+    array([[1.6, 2.6],
+           [2.2, 3.2],
+           [3. , 4. ]])
+    >>> m3 = vec_float_indexing(m1, [0.8, 0.])
+    >>> m3
+    1.6
+    """
+
+    nkeys = len(keys)
+
+    # Find interpolation shape  # TODO this part can be improved
+    dims_array = None
+    index0 = []
+    for i in range(nkeys):
+        k = keys[i]
+        if isinstance(k, np.ndarray) and (k.ndim > 0):
+            index0.append(np.zeros_like(k, dtype='int'))
+            if dims_array is None:
+                dims_array = k.shape
+        elif isinstance(k, slice):
+            index0.append(k)
+        else:  # scalar
+            index0.append(0)
+    shp_int = np.zeros(1).reshape([1]*nkeys)[tuple(index0)].shape
+
+    isinterp = [not isinstance(k, slice) for k in keys]
+    interp_keys_idx = [i for i, e in enumerate(isinterp) if e]
+
+    ninterp = len(interp_keys_idx)
+
+    bmat = get_binary_mat(nkeys)
+    res = 0
+    keys_bis = keys.copy()
+    for iter in range(0, 2**ninterp):
+        fac=1
+        k = []
+        for ik in range (0, ninterp):
+            k.append(np.floor(keys[interp_keys_idx[ik]]).astype(np.int32) + bmat[iter,interp_keys_idx[ik]])
+            diff = np.abs(k[ik] - keys[interp_keys_idx[ik]])
+            fac *= (1-diff)
+            keys_bis[interp_keys_idx[ik]] = k[ik]
+        res += fac.reshape(shp_int)  * data[tuple(keys_bis)]
+
+    return res
 
 def get_zatm(P_hl, T_fl, M_air, g, h2o_mole_frac_fl=None, P_fl = None, M_h2o=None, method='barometric'):
     """
@@ -151,7 +222,7 @@ def check_input_ckdmip2od(gas, wvn_min, wvn_max, ckdmip_files):
     
 
 def ckdmip2od(gas, dir_ckdmip, atm='afglus', wvn_min = 2499.99, wvn_max=50000, chunk=500,
-              save=False, dir_save='./'):
+              save=False, dir_save='./', float_indexing = 'fast'):
     """
     Use ckdmip shortwave idealized look-up tables to generate optical depth for a given atm
 
@@ -170,6 +241,8 @@ def ckdmip2od(gas, dir_ckdmip, atm='afglus', wvn_min = 2499.99, wvn_max=50000, c
         splited during interpolation)
     save : bool, optional
         If not False, output directory where to save the optical depth generated lut
+    float_indexing : str, optional
+        Choose between -> 'fast' and 'xarray'.
 
     Returns
     -------
@@ -187,6 +260,8 @@ def ckdmip2od(gas, dir_ckdmip, atm='afglus', wvn_min = 2499.99, wvn_max=50000, c
 
     # Declaration of variables
     ds_gas_imf = xr.open_dataset(ckdmip_files[0])
+    ds_gas_imf.chunk({"wavenumber":chunk})
+    ds_gas_imf.close()
     wavn = ds_gas_imf.wavenumber[np.logical_and(ds_gas_imf.wavenumber>=wvn_min, ds_gas_imf.wavenumber<=wvn_max)].values
     nwavn = len(wavn)
     P_fl = ds_gas_imf['pressure_fl'].values[0,:]
@@ -210,7 +285,10 @@ def ckdmip2od(gas, dir_ckdmip, atm='afglus', wvn_min = 2499.99, wvn_max=50000, c
     with tqdm(total=nmf) as bar_mf:
         for imf in range (0,nmf):
             bar_mf.set_description("Load " + gas.lower() + " ckdmip optical depth...")
-            if imf > 0 : ds_gas_imf = xr.open_dataset(ckdmip_files[imf])
+            if imf > 0 :
+                ds_gas_imf = xr.open_dataset(ckdmip_files[imf])
+                ds_gas_imf.chunk({"wavenumber":chunk})
+                ds_gas_imf.close()
             ds_gas_imf = ds_gas_imf.sel(wavenumber = wavn)
             OD_gas[:,:,:,imf] = ds_gas_imf['optical_depth'].values
             mole_fraction.append(ds_gas_imf['mole_fraction_hl'].values[0,0])
@@ -227,6 +305,14 @@ def ckdmip2od(gas, dir_ckdmip, atm='afglus', wvn_min = 2499.99, wvn_max=50000, c
     mole_fraction_afgl = LUT( ((afgl_pro[gas][:]*1e6* constants.Boltzmann*afgl_pro['T'][:])/(afgl_pro['P'][:]*1e2)), axes=[z_afgl], names=["z_atm"])
     z_afgl_fl = z_afgl[1:] + 0.5*np.abs(np.diff(z_afgl))
     mole_fraction_afgl_fl = mole_fraction_afgl[Idx(z_afgl_fl)]
+
+    # Bellow needed for vectorized float indexing
+    cond = np.logical_and(P_afgl_fl< np.max(P_fl), P_afgl_fl > np.min(P_fl))
+    if float_indexing == 'fast':
+        idf_pfl = interp1d(P_fl, np.arange(nP))(P_afgl_fl[cond])
+        idf_tfl = interp1d(T_fl_unique, np.arange(nT_unique))(T_afgl_fl[cond])
+        if (gas == 'H2O'):
+            idf_mffl = interp1d(mole_fraction, np.arange(nmf))(mole_fraction_afgl_fl[cond])
 
     nwc = chunk
     nwc_ini = 0
@@ -251,63 +337,35 @@ def ckdmip2od(gas, dir_ckdmip, atm='afglus', wvn_min = 2499.99, wvn_max=50000, c
                             ( mole_fraction[imf] * (P_hl[ilvl+1] - P_hl[ilvl] ) )
 
                 for ip in range (0, nP):
-                        indT = np.searchsorted(T_fl_unique, T_fl[:,ip])
-                        C_ext_iw[ip,indT,:,imf] = C_ext_iw_imf_bis[:,ip,:]
+                        C_ext_iw[ip,:,:,imf] = make_interp_spline(T_fl[:,ip], C_ext_iw_imf_bis[:,ip,:], k=1, axis=0)(T_fl_unique)
 
+            # ****** Vectorized float indexing ******
+            if float_indexing == 'fast':
+                if (gas == 'H2O'):
+                    keys = [idf_pfl, idf_tfl, slice(None), idf_mffl]
+                    C_ext_gas[cond,nwc_ini:nwc_end] = vec_float_indexing(C_ext_iw, keys)
+                else :
+                    keys = [idf_pfl, idf_tfl, slice(None)]
+                    C_ext_gas[cond,nwc_ini:nwc_end] = vec_float_indexing(C_ext_iw[:,:,:,0], keys)
 
-            # ==  Method with luts
-            # lut_C_ext = LUT(C_ext_iw, axes=[P_fl,T_fl_unique,wavn[nwc_ini:nwc_end],mole_fraction],
-            #                 names=['P', 'T', 'wavenumber','mole_fraction'])
-
-            # cond = np.logical_and(P_afgl_fl< np.max(P_fl), P_afgl_fl > np.min(P_fl))
-            # if (gas == 'H2O'): C_ext_gas[cond,nwc_ini:nwc_end] = lut_C_ext[Idx(P_afgl_fl[cond]), Idx(T_afgl_fl[cond]), :, Idx(mole_fraction_afgl_fl[cond])]
-            # else : C_ext_gas[cond,nwc_ini:nwc_end] = lut_C_ext[Idx(P_afgl_fl[cond]), Idx(T_afgl_fl[cond]), :, 0]
-
-            # ==  Other method based on luts
-            # cond = np.logical_and(P_afgl_fl< np.max(P_fl), P_afgl_fl > np.min(P_fl))
-            # if (gas == 'H2O'): C_ext_gas[cond,nwc_ini:nwc_end] = lut_C_ext[Idx(P_afgl_fl[cond]), Idx(T_afgl_fl[cond]), :, Idx(mole_fraction_afgl_fl[cond])]
-            # else :
-            #     #C_ext_gas[cond,nwc_ini:nwc_end] = lut_C_ext[Idx(P_afgl_fl[cond]), Idx(T_afgl_fl[cond]), :, 0]
-            #     idf_pfl = interp1d(P_fl, np.arange(nP), bounds_error=True)(P_afgl_fl[cond])
-            #     idf_tfl = interp1d(T_fl_unique, np.arange(nT_unique), bounds_error=True)(T_afgl_fl[cond])
-            #     #idf_wl = np.arange(nwavn)
-
-            #     keys_all = [idf_pfl, idf_tfl, slice(None)]
-            #     keys = [idf_pfl, idf_tfl]
-            #     nkeys = len(keys)
-
-            #     bmat = get_binary_mat(nkeys)
-            #     res = 0
-            #     for iter in range(0, nkeys**2):
-            #         fac=1
-            #         k = []
-            #         for ik in range (0, nkeys):
-            #             k.append(np.floor(keys[ik]).astype(np.int32) + bmat[iter,ik])
-            #             diff = np.abs(k[ik] - keys[ik])
-            #             fac *= (1-diff)
-            #             keys_all[ik] = k[ik]
-            #         res += fac[:,None] * C_ext_iw[:,:,:,0][tuple(keys_all)]
-
-
-            # == Method with xarray and hygeos core module
-            if (gas == 'H2O'):
-                lut_C_ext = xr.DataArray(C_ext_iw,
-                                         dims=['P', 'T', 'wvn','mf'],
-                                         coords={'P':P_fl, 'T':T_fl_unique, 'wvn':wavn[nwc_ini:nwc_end], 'mf':mole_fraction},)
+            elif float_indexing == 'xarray':
+                if (gas == 'H2O'):
+                    lut_C_ext = xr.DataArray(C_ext_iw,
+                                             dims=['P', 'T', 'wvn','mf'],
+                                             coords={'P':P_fl, 'T':T_fl_unique, 'wvn':wavn[nwc_ini:nwc_end], 'mf':mole_fraction},)
+                    
+                    C_ext_gas[cond,nwc_ini:nwc_end] = lut_C_ext.interp(**{'P':xr.DataArray(P_afgl_fl[cond], dims=['z_atm']),
+                                                                          'T':xr.DataArray(T_afgl_fl[cond], dims=['z_atm']),
+                                                                          'mf':xr.DataArray(mole_fraction_afgl_fl[cond], dims=['z_atm'])})
+                else:
+                    lut_C_ext = xr.DataArray(C_ext_iw[:,:,:,0],
+                                             dims=['P', 'T', 'wvn'],
+                                             coords={'P':P_fl, 'T':T_fl_unique, 'wvn':wavn[nwc_ini:nwc_end]},)
+                    C_ext_gas[cond,nwc_ini:nwc_end] = lut_C_ext.interp(**{'P':xr.DataArray(P_afgl_fl[cond], dims=['z_atm']),
+                                                                          'T':xr.DataArray(T_afgl_fl[cond], dims=['z_atm'])})
             else:
-                lut_C_ext = xr.DataArray(C_ext_iw[:,:,:,0],
-                                         dims=['P', 'T', 'wvn'],
-                                         coords={'P':P_fl, 'T':T_fl_unique, 'wvn':wavn[nwc_ini:nwc_end]},)
-
-            cond = np.logical_and(P_afgl_fl< np.max(P_fl), P_afgl_fl > np.min(P_fl))
-            if (gas == 'H2O'):
-                C_ext_gas[cond,nwc_ini:nwc_end] = interp(lut_C_ext, interp={'P':xr.DataArray(P_afgl_fl[cond]),
-                                                                            'T':xr.DataArray(T_afgl_fl[cond]),
-                                                                            'mf':xr.DataArray(mole_fraction_afgl_fl[cond])})
-            else :
-                C_ext_gas[cond,nwc_ini:nwc_end] = interp(lut_C_ext, interp={'P':xr.DataArray(P_afgl_fl[cond]),
-                                                                            'T':xr.DataArray(T_afgl_fl[cond])})
-                
+                raise NameError("Unknown float_indexing value. Choose between 'fast' or 'xarray'!")
+            # ***************************************
             nwc_ini = nwc_end
             bar_wavn.update(1)
 
