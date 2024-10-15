@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import os
 import numpy as np
 from scipy import constants
-from luts.luts import read_mlut, MLUT, LUT, Idx
 import glob
 import xarray as xr
 from tqdm import tqdm
@@ -256,11 +256,10 @@ def ckdmip2od(gas, dir_ckdmip, atm='afglus', wvn_min = 2499.99, wvn_max=50000, c
 
     check_input_ckdmip2od(gas, wvn_min, wvn_max, ckdmip_files)
 
-    afgl_pro = read_mlut('./atmospheres/'+atm+'.nc')
+    afgl_pro = xr.open_dataset('./atmospheres/'+atm+'.nc')
 
     # Declaration of variables
     ds_gas_imf = xr.open_dataset(ckdmip_files[0])
-    ds_gas_imf.chunk({"wavenumber":chunk})
     ds_gas_imf.close()
     wavn = ds_gas_imf.wavenumber[np.logical_and(ds_gas_imf.wavenumber>=wvn_min, ds_gas_imf.wavenumber<=wvn_max)].values
     nwavn = len(wavn)
@@ -275,9 +274,10 @@ def ckdmip2od(gas, dir_ckdmip, atm='afglus', wvn_min = 2499.99, wvn_max=50000, c
     nmf = len(ckdmip_files)
     M_air = MolarMassAir*1e-3
 
-    z_afgl = afgl_pro.axes['z_atm'][:] # in Km
-    nzafgl = len(z_afgl)
-    P_afgl = afgl_pro['P'][:] * 1e2 # in Pa
+    z_afgl_hl = afgl_pro['z_atm'].values[:] # in Km
+    n_afgl_hl = len(z_afgl_hl)
+    P_afgl_hl = afgl_pro['P'].values[:] * 1e2 # in Pa
+    T_afgl_hl = afgl_pro['T'].values[:]
 
     # First step: Load optical depths and save it in numpy array
     mole_fraction = []
@@ -287,7 +287,6 @@ def ckdmip2od(gas, dir_ckdmip, atm='afglus', wvn_min = 2499.99, wvn_max=50000, c
             bar_mf.set_description("Load " + gas.lower() + " ckdmip optical depth...")
             if imf > 0 :
                 ds_gas_imf = xr.open_dataset(ckdmip_files[imf])
-                ds_gas_imf.chunk({"wavenumber":chunk})
                 ds_gas_imf.close()
             ds_gas_imf = ds_gas_imf.sel(wavenumber = wavn)
             OD_gas[:,:,:,imf] = ds_gas_imf['optical_depth'].values
@@ -297,14 +296,14 @@ def ckdmip2od(gas, dir_ckdmip, atm='afglus', wvn_min = 2499.99, wvn_max=50000, c
 
     # Second step: Conversion and interpolations
     # Here we split wavenumber into several pieces (chunk) to save memory and optimize calculations
-    C_ext_gas = np.zeros((nzafgl-1,nwavn), dtype=np.float64)
+    C_ext_gas = np.zeros((n_afgl_hl-1,nwavn), dtype=np.float64)
 
-    T_int = interp1d(afgl_pro['P'][:], afgl_pro['T'][:], bounds_error=False, fill_value='extrapolate')
-    P_afgl_fl = P_afgl[1:] - 0.5*np.diff(P_afgl)
-    T_afgl_fl = T_int(P_afgl_fl*1e-2)
-    mole_fraction_afgl = LUT( ((afgl_pro[gas][:]*1e6* constants.Boltzmann*afgl_pro['T'][:])/(afgl_pro['P'][:]*1e2)), axes=[z_afgl], names=["z_atm"])
-    z_afgl_fl = z_afgl[1:] + 0.5*np.abs(np.diff(z_afgl))
-    mole_fraction_afgl_fl = mole_fraction_afgl[Idx(z_afgl_fl)]
+    T_int = interp1d(P_afgl_hl, T_afgl_hl, bounds_error=False, fill_value='extrapolate')
+    P_afgl_fl = P_afgl_hl[1:] - 0.5*np.diff(P_afgl_hl)
+    T_afgl_fl = T_int(P_afgl_fl)
+    mole_fraction_afgl_hl = (afgl_pro[gas].values[:]*1e6* constants.Boltzmann*T_afgl_hl)/(P_afgl_hl)
+    z_afgl_fl = z_afgl_hl[1:] + 0.5*np.abs(np.diff(z_afgl_hl))
+    mole_fraction_afgl_fl = interp1d(z_afgl_hl, mole_fraction_afgl_hl)(z_afgl_fl)
 
     # Bellow needed for vectorized float indexing
     cond = np.logical_and(P_afgl_fl< np.max(P_fl), P_afgl_fl > np.min(P_fl))
@@ -370,39 +369,38 @@ def ckdmip2od(gas, dir_ckdmip, atm='afglus', wvn_min = 2499.99, wvn_max=50000, c
             bar_wavn.update(1)
 
     # Third step: reconversion to optical depth
-    tau_gas = np.zeros((nzafgl-1,nwavn), dtype=np.float64)
-    P_afgl_hl = (afgl_pro['P'][:]*1e2).astype(np.float64)
-
+    tau_gas = np.zeros((n_afgl_hl-1,nwavn), dtype=np.float64)
     print("reconvert to optical depth...")
-    with tqdm(total=int(nzafgl-1)) as bar_lvl:
-        for ilvl in range (0, nzafgl-1):
+    with tqdm(total=int(n_afgl_hl-1)) as bar_lvl:
+        for ilvl in range (0, n_afgl_hl-1):
             tau_gas[ilvl] = (C_ext_gas[ilvl,:] * mole_fraction_afgl_fl[ilvl].astype(np.float64) * (P_afgl_hl[ilvl+1] - P_afgl_hl[ilvl])) / (AccelDueToGravity * M_air)
             bar_lvl.update(1)
     print("reconverted to optical depth.")
 
     # Fourth step: Create final LUT and optionnaly save
-    mlut_idea = MLUT()
-    mlut_idea.add_axis('level', (np.arange(nzafgl-1)+1).astype(np.int32))
-    mlut_idea.add_axis('half_level', (np.arange(nzafgl)+1).astype(np.int32))
-    mlut_idea.add_axis('wavenumber', wavn)
-    mlut_idea.add_dataset('P_fl', P_afgl_fl.astype(np.float32), axnames=['level'], attrs={"Description":"Full level pressure in Pa."})
-    mlut_idea.add_dataset('T_fl', T_afgl_fl.astype(np.float32), axnames=['level'], attrs={"Description":"Full level temperature in Pa."})
-    mlut_idea.add_dataset('P_hl', (afgl_pro['P'][:]*1e2).astype(np.float32), axnames=['half_level'], attrs={"Description":"half level pressure in K."})
-    mlut_idea.add_dataset('T_hl', (afgl_pro['T'][:]).astype(np.float32), axnames=['half_level'], attrs={"Description":"half level temperature in K."})
-    mlut_idea.add_dataset('mole_fraction_fl', mole_fraction_afgl_fl, axnames=['level'])
-    mlut_idea.add_dataset('mole_fraction_hl', mole_fraction_afgl[:], axnames=['half_level'])
-    mlut_idea.add_dataset('optical_depth', tau_gas.astype(np.float32), axnames=['level', 'wavenumber'])
-    mlut_idea.add_dataset('z_atm', z_afgl, axnames=['half_level'])
+    ds = xr.Dataset(coords={'level':(np.arange(n_afgl_hl-1)+1).astype(np.int32),
+                            'half_level':(np.arange(n_afgl_hl)+1).astype(np.int32),
+                            'wavenumber':wavn})
+    ds['P_fl'] = xr.DataArray(P_afgl_fl.astype(np.float32), dims=['level'], attrs={'units':'Pascal' , 'description':'Full level pressure'})
+    ds['T_fl'] = xr.DataArray(T_afgl_fl.astype(np.float32), dims=['level'], attrs={'units':'Kelvin' , 'description':'Full level temperature'})
+    ds['P_hl'] = xr.DataArray(P_afgl_hl.astype(np.float32), dims=['half_level'], attrs={'units':'Pascal' , 'description':'half level pressure'})
+    ds['T_hl'] = xr.DataArray(T_afgl_hl.astype(np.float32), dims=['half_level'], attrs={'units':'Kelvin' , 'description':'half level temperature'})
+    ds['mole_fraction_fl'] = xr.DataArray(mole_fraction_afgl_fl, dims=['level'], attrs={'units':'None' , 'description':'full level mole fraction'})
+    ds['mole_fraction_hl'] = xr.DataArray(mole_fraction_afgl_hl, dims=['half_level'], attrs={'units':'None' , 'description':'half level mole fraction'})
+    ds['optical_depth'] = xr.DataArray(tau_gas.astype(np.float32), dims=['level', 'wavenumber'], attrs={'units':'None' , 'description':'optical depth'})
+    ds['z_atm'] = xr.DataArray(z_afgl_hl, dims=['half_level'], attrs={'units':'Kilometer' , 'description':'atmosphere height profil'})
     date = datetime.now().strftime("%Y-%m-%d")
-    mlut_idea.set_attr('name', 'Spectral optical depth profiles of ' + gas)
-    mlut_idea.set_attr('experiment', atm + ' based on Idealized CKDMIP interpolation')
-    mlut_idea.set_attr('date', date)
-    mlut_idea.set_attr('source', 'Created by HYGEOS, using CKDMIP data')
+    ds.attrs = {'name': 'Spectral optical depth profiles of ' + gas,
+                'experiment': atm + ' based on Idealized CKDMIP interpolation',
+                'date':date,
+                'source': 'Created by HYGEOS, using CKDMIP data'}
     if save :
         save_filename = f"od_{gas}_{atm}_ckdmip_idealized_solar_spectra.nc"
-        mlut_idea.to_xarray().to_netcdf(dir_save + save_filename)
-
-    return mlut_idea
+        path_to_file = dir_save + save_filename
+        if os.path.isfile(path_to_file): os.remove(path_to_file)
+        ds.to_netcdf(path_to_file)
+    
+    return ds
 
 
 class Gatiab(object):
@@ -421,15 +419,14 @@ class Gatiab(object):
         self.od = od
         self.gas = od.attrs['name'].split(' ')[-1] # gas name
         self.atm = od.attrs['experiment'].split(' ')[0] # atmosphere name
-        self.wavenumber = od['wavenumber'].data[:] # in cm-1
-        self.half_level = od['half_level'].data[:]
-        self.P_hl = od['P_hl'].data[:] # air pressure profil
-        self.T_hl = od['T_hl'].data[:] # temperature profil
-        self.z_atm = od['z_atm'].data[:] # z profil as function of half_level
-        self.mole_fraction_hl = od['mole_fraction_hl'].data[:]
+        self.wavenumber = od['wavenumber'].values[:] # in cm-1
+        self.half_level = od['half_level'].values[:]
+        self.P_hl = od['P_hl'].values[:] # air pressure profil
+        self.T_hl = od['T_hl'].values[:] # temperature profil
+        self.z_atm = od['z_atm'].values[:] # z profil as function of half_level
+        self.mole_fraction_hl = od['mole_fraction_hl'].values[:]
         self.p_gas_hl = self.P_hl* self.mole_fraction_hl # half level gas pressure
         self.dens_gas_hl = (self.p_gas_hl) / (constants.Boltzmann*self.T_hl) * 1e-6 # half level gas density in cm-3
-
 
     def get_gas_content(self):
         """
@@ -441,7 +438,11 @@ class Gatiab(object):
             gas_content = (molar_mass[self.gas.lower()]/constants.Avogadro)* \
                 (simpson(y=self.dens_gas_hl, x=-self.z_atm)*1e5)
         return gas_content
+    
+    def print_gas_content(self):
 
+        if self.gas == 'O3': print(f'gas content ({self.gas}) = ', round(self.get_gas_content(),3), " DU")
+        else: print(f'gas content ({self.gas}) = ', round(self.get_gas_content(),3), " g cm-2")
 
     def calc(self, gas_content, air_mass, p0, srf_wvl, rsrf, save=False):
         """
@@ -450,7 +451,7 @@ class Gatiab(object):
         Parameters
         ----------
         gas_content : np.ndarray
-            Gas content, in dopson for O3 and in g m-2 for other gas
+            Gas content, in dopson for O3 and in g cm-2 for other gas
         air_mass : np.ndarray
             Ratio of slant path optical depth and vertical optical depth
         p0 : np.ndarray
@@ -497,11 +498,12 @@ class Gatiab(object):
                         dens_gas_iUp =  dens_gas_ip * (gas_content[iU]/ molar_mass[self.gas.lower()] * constants.Avogadro / (simpson(y=dens_gas_ip, x=-z_atm_ib) * 1e5))
                     
                     # convert to abs coeff then interpolate
-                    ot = lut_gas_bi['optical_depth'].data.astype(np.float64)
+                    ot = lut_gas_bi['optical_depth'].values.astype(np.float64)
                     ot = np.append(np.zeros((1,len(wvn_bi_extented))), ot, axis=0).astype(np.float64)
                     ot = np.swapaxes(ot, 0,1)
                     dz = diff1(self.z_atm).astype(np.float64)
-                    k = abs(ot/dz)
+                    with np.errstate(invalid='ignore'):
+                        k = abs(ot/dz)
                     k[np.isnan(k)] = 0
                     sl = slice(None,None,1)
                     k = k[:,sl]
