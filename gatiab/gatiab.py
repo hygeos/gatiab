@@ -222,7 +222,7 @@ def check_input_ckdmip2od(gas, wvn_min, wvn_max, ckdmip_files):
         raise NameError(f"The number of {gas} files must be equal to 1!")
     
 
-def ckdmip2od(gas, dir_ckdmip, atm_dir, atm='afglus', wvn_min = 2499.99, wvn_max=50000, chunk=500,
+def ckdmip2od(gas, dir_ckdmip, dir_atm, atm='afglus', wvn_min = 2499.99, wvn_max=50000, chunk=500,
               save=False, dir_save='./', float_indexing = 'fast'):
     """
     Use ckdmip shortwave idealized look-up tables to generate optical depth for a given atm
@@ -261,7 +261,7 @@ def ckdmip2od(gas, dir_ckdmip, atm_dir, atm='afglus', wvn_min = 2499.99, wvn_max
 
     if 'nc' not in atm.split('.'): filename = atm+'.nc'
     else: filename = atm
-    file_path = Path.joinpath(Path(atm_dir), filename)
+    file_path = Path.joinpath(Path(dir_atm), filename)
     afgl_pro = xr.open_dataset(file_path)
 
     # Declaration of variables

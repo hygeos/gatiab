@@ -119,7 +119,7 @@ def test_gas(request, gas, get_rsrf_data):
     
     ds = ckdmip2od(gas=gas,
                    dir_ckdmip=request.config.getoption("--dir-ckdmip"),
-                   atm_dir=request.config.getoption("--dir-atm"),
+                   dir_atm=request.config.getoption("--dir-atm"),
                    wvn_min=9550., wvn_max=26000.)
     
     gt = Gatiab(ds)
