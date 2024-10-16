@@ -9,6 +9,7 @@ description = "Gasous Absorption Transmissions at Instrument Averaged Band"
 authors = [
     {name = "Mustapha Moulana", email="mm@hygeos.com"}
 ]
+requires-python = ">=3.9.19"
 dependencies = [
     "numpy>=1.26.4",
     "xarray>=2024.7.0",
