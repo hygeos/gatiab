@@ -415,13 +415,15 @@ class Gatiab(object):
 
     Parameters
     ----------
-    od_filename : path to optical depth netcdf4 LUT (created using ckdmip2od function)
-
+    od_lut : str | xr.Dataset
+        srt path or xr.Dataset of the gas optical depth LUT (created using ckdmip2od function)
     """
     
-    def __init__(self, od_filename):
-
-        od = xr.open_dataset(od_filename)
+    def __init__(self, od_lut):
+        if isinstance(od_lut, xr.Dataset):
+            od = od_lut
+        else:
+            od = xr.open_dataset(od_lut)
         self.od = od
         self.gas = od.attrs['name'].split(' ')[-1] # gas name
         self.atm = od.attrs['experiment'].split(' ')[0] # atmosphere name
