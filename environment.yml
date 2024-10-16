@@ -12,3 +12,4 @@ dependencies:
   - xarray>=2024.7.0
   - scipy>=1.13.1
   - tqdm>=4.66.5
+  - pytest>=8.3.2
