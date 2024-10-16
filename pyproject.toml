@@ -1,0 +1,20 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools>=42"]
+
+[project]
+name = "gatiab"
+version = "1.0.0"
+description = "Gasous Absorption Transmissions at Instrument Averaged Band"
+authors = [
+    {name = "Mustapha Moulana", email="mm@hygeos.com"}
+]
+dependencies = [
+    "numpy>=1.26.4",
+    "xarray>=2024.7.0",
+    "scipy>=1.13.1",
+    "tqdm>=4.66.5"
+]
+
+[tool.setuptools]
+packages = ["gatiab"]
