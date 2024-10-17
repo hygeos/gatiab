@@ -12,6 +12,8 @@ from scipy.integrate import simpson
 from datetime import datetime
 from pathlib import Path
 
+GATIAB_VERSION = '1.0.0'
+
 AccelDueToGravity  = 9.80665 # m s-2
 MolarMassAir       = 28.970  # g mol-1 dry air
 
@@ -200,6 +202,15 @@ def diff1(A, axis=0, samesize=True):
     else:
         return np.diff(A, axis=axis)
     
+def get_bands(srf_wvl, rsrf):
+
+    nbands = len(srf_wvl)
+    bands = []
+    for iband in range (0, nbands):
+        bands.append(round(simpson(srf_wvl[iband]*rsrf[iband], x=srf_wvl[iband])/simpson(rsrf[iband], x=srf_wvl[iband]), 1))
+    bands = np.array(bands, dtype=np.float64)
+    return bands
+    
 
 def check_input_ckdmip2od(gas, wvn_min, wvn_max, ckdmip_files):
 
@@ -243,13 +254,15 @@ def ckdmip2od(gas, dir_ckdmip, dir_atm, atm='afglus', wvn_min = 2499.99, wvn_max
         Number of wavenumber considered at each iteration (wavenumber dim is
         splited during interpolation)
     save : bool, optional
-        If not False, output directory where to save the optical depth generated lut
+        If True, save output in netcdf format
+    dir_save : str, optional
+        Output directory where to save the optical depth generated lut
     float_indexing : str, optional
-        Choose between -> 'fast' and 'xarray'.
+        Choose between -> 'fast' and 'xarray'
 
     Returns
     -------
-    L : MLUT
+    L : xr.Dataset
         Look-up table with the gas optical depth for the specified atmosphere
     
     """
@@ -399,7 +412,7 @@ def ckdmip2od(gas, dir_ckdmip, dir_atm, atm='afglus', wvn_min = 2499.99, wvn_max
     ds.attrs = {'name': 'Spectral optical depth profiles of ' + gas,
                 'experiment': atm + ' based on Idealized CKDMIP interpolation',
                 'date':date,
-                'source': 'Created by HYGEOS, using CKDMIP data'}
+                'source': f'Created by HYGEOS, using CKDMIP data and GATIAB v{GATIAB_VERSION}'}
     if save :
         save_filename = f"od_{gas}_{atm}_ckdmip_idealized_solar_spectra.nc"
         path_to_file = Path.joinpath(Path(dir_save), save_filename)
@@ -451,8 +464,8 @@ class Gatiab(object):
 
         if self.gas == 'O3': print(f'gas content ({self.gas}) = ', round(self.get_gas_content(),3), " DU")
         else: print(f'gas content ({self.gas}) = ', round(self.get_gas_content(),3), " g cm-2")
-
-    def calc(self, gas_content, air_mass, p0, srf_wvl, rsrf, save=False):
+        
+    def calc(self, gas_content, air_mass, p0, srf_wvl, rsrf, save=False, dir_save='./'):
         """
         Compute gaseous transmissions
         
@@ -469,7 +482,9 @@ class Gatiab(object):
         rsrf : list
             relative SRF values np.ndarray into an iband list
         save : bool, optional
-            Save output in netcdf format.
+            If True, save output in netcdf format
+        dir_save : str, optional
+            Output directory where to save the optical depth generated lut
 
         Returns
         -------
@@ -537,15 +552,12 @@ class Gatiab(object):
                         trans = num/den
                         trans_gas[iband,iU,iM,ip] = trans
 
-        bands = []
-        for iband in range (0, nbands):
-            bands.append(round(simpson(srf_wvl[iband]*rsrf[iband], x=srf_wvl[iband])/simpson(rsrf[iband], x=srf_wvl[iband]), 1))
-        bands = np.array(bands, dtype=np.float64)
+        bands = get_bands(srf_wvl, rsrf)
 
         ds = xr.Dataset()
         ds['trans'] = xr.DataArray(trans_gas.astype(np.float32),
-                                                     dims=["lambda", "U", "M", "p0"],
-                                                     coords={'lambda':bands, 'U':gas_content, 'M':air_mass, 'p0':p0})
+                                   dims=["lambda", "U", "M", "p0"],
+                                   coords={'lambda':bands, 'U':gas_content, 'M':air_mass, 'p0':p0})
         
         ds['lambda'].attrs = {'units':'Nanometers' , 'description':'Instrument averaged bands'}
         if self.gas == 'O3': ds['U'].attrs = {'units':'Dobson' , 'description':'Total column content of the gas'}
@@ -555,5 +567,10 @@ class Gatiab(object):
         ds['trans'].attrs = {'units':'None' , 'description': self.gas + ' transmission'}
 
         date = datetime.now().strftime("%Y-%m-%d")
-        ds.attrs = {'atm':self.atm, 'date':date, 'source': 'Created using the Gatiab module'}
+        ds.attrs = {'atm':self.atm, 'date':date, 'source': f'Created using GATIAB v{GATIAB_VERSION}'}
+        if save :
+            save_filename = f"trans_{self.gas}_{self.atm}_gatiab.nc"
+            path_to_file = Path.joinpath(Path(dir_save), save_filename)
+            if os.path.isfile(path_to_file): os.remove(path_to_file)
+            ds.to_netcdf(path_to_file)
         return ds

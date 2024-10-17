@@ -20,6 +20,13 @@ The SMART-G makefile can be used:
 ```
 $ make auxdata_atm
 ```
+
+## Installation
+The module can be installed using the following command:
+```
+$ pip install git+https://github.com/hygeos/gatiab.git
+```
+
 ## Testing
 Example of pytest.ini file:
 ```
@@ -65,6 +72,6 @@ gt.print_gas_content() # print the standard afgl total column content of O3
 gas_content = np.array([250., 300., 350.]) # in DU
 air_mass = np.array([3., 4., 5.])
 p0 = gt.od['P_hl'][-2:].data*1e-2 # ground pressure in hectopascal
-ds_gt = gt.calc(gas_content,air_mass, p0, srf_wvl_r, rsrf_r)
+ds_gt = gt.calc(gas_content, air_mass, p0, srf_wvl_r, rsrf_r)
 print(ds_gt)
 ```
