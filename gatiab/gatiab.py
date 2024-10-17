@@ -467,7 +467,7 @@ class Gatiab(object):
         srf_wvl : list
             SRF wavelengths np.ndarray into an iband list
         rsrf : list
-            SRF values np.ndarray into an iband list
+            relative SRF values np.ndarray into an iband list
         save : bool, optional
             Save output in netcdf format.
 

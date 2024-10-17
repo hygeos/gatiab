@@ -43,7 +43,7 @@ dir_atm = "path/to/atm/dir/"
 
 # First create optical depth LUTs of a given atmosphere
 # wavenumber units -> cm-1
-ds = ckdmip2od(gas='O3', dir_ckdmip=dir_ckdmip, dir_atm=dir_atm,
+ds = ckdmip2od(gas='O3', dir_ckdmip=dir_ckdmip, dir_atm=dir_atm, atm='afglus',
                wvn_min = 4000., wvn_max=26000., save=True)
 
 # Second we need the instrument spectral response
@@ -51,7 +51,7 @@ ds = ckdmip2od(gas='O3', dir_ckdmip=dir_ckdmip, dir_atm=dir_atm,
 # Other SRF intruments -> https://nwp-saf.eumetsat.int/site/software/rttov/download/coefficients/spectral-response-functions/
 rsrf_files = sorted(glob.glob("./tests/S3A_OLCI_rsrf/*.nc"))
 nbands = len(rsrf_files)
-rsrf = [] # iband list with spectral response as function of wavelength
+rsrf = [] # iband list with relative spectral response as function of wavelength
 srf_wvl = [] # iband list with wavelength in nanometer
 for i in range (0, nbands):
     with xr.open_dataset(rsrf_files[i]) as ds:
