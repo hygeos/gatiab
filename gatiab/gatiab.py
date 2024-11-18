@@ -12,7 +12,7 @@ from scipy.integrate import simpson
 from datetime import datetime
 from pathlib import Path
 
-GATIAB_VERSION = '1.0.0'
+GATIAB_VERSION = '1.0.1'
 
 AccelDueToGravity  = 9.80665 # m s-2
 MolarMassAir       = 28.970  # g mol-1 dry air
