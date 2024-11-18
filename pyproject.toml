@@ -5,10 +5,12 @@ requires = ["setuptools>=42"]
 [project]
 name = "gatiab"
 version = "1.0.0"
-description = "Gasous Absorption Transmissions at Instrument Averaged Band"
+license = {file = "LICENSE.txt"}
+description = "Gasous Absorption Transmissions at Instrument Averaged Bands"
 authors = [
     {name = "Mustapha Moulana", email="mm@hygeos.com"}
 ]
+readme = "README.md"
 requires-python = ">=3.9.19"
 dependencies = [
     "numpy>=1.26.4",
