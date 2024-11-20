@@ -5,6 +5,14 @@
            #                         #
            ###########################
 
+v1.0.2
+------
+Release date: 2024-11-20
+
+* Correct license name incoherence between licence file name and name given in pyproject toml file
+* Add missing classifiers in pyproject toml file
+
+
 v1.0.1
 ------
 Release date: 2024-11-18

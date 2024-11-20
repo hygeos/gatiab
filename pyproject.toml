@@ -4,7 +4,7 @@ requires = ["setuptools>=42"]
 
 [project]
 name = "gatiab"
-version = "1.0.1"
+version = "1.0.2"
 license = {file = "LICENSE.txt"}
 description = "Gasous Absorption Transmissions at Instrument Averaged Bands"
 authors = [
