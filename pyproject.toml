@@ -11,6 +11,17 @@ authors = [
     {name = "Mustapha Moulana", email="mm@hygeos.com"}
 ]
 readme = "README.md"
+classifiers = [
+    'Development Status :: 5 - Production/Stable',
+    'License :: Free for non-commercial use',
+    'Intended Audience :: Science/Research',
+    'Intended Audience :: Developers',
+    'Programming Language :: Python',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Topic :: Scientific/Engineering',
+]
 requires-python = ">=3.9.19"
 dependencies = [
     "numpy>=1.26.4",
