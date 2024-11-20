@@ -1,0 +1,1 @@
+include tests/S3A_OLCI_rsrf/*.nc
