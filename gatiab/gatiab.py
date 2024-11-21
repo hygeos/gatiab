@@ -12,7 +12,7 @@ from scipy.integrate import simpson
 from datetime import datetime
 from pathlib import Path
 
-GATIAB_VERSION = '1.0.2'
+GATIAB_VERSION = '1.1.0'
 
 AccelDueToGravity  = 9.80665 # m s-2
 MolarMassAir       = 28.970  # g mol-1 dry air
@@ -462,9 +462,6 @@ class Gatiab(object):
         return gas_content
     
     def print_gas_content(self, fmt='%.3F'):
-
-        # if self.gas == 'O3': print(f'gas content ({self.gas}) = ', round(self.get_gas_content(),3), " DU")
-        # else: print(f'gas content ({self.gas}) = ', round(self.get_gas_content(),3), " g cm-2")
         if self.gas == 'O3': print("gas content (" + self.gas + ") = " + fmt % self.get_gas_content() + " DU")
         else: print("gas content (" + self.gas + ") = " + fmt % self.get_gas_content() + " g cm-2")
         

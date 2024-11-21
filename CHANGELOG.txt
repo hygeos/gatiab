@@ -5,6 +5,18 @@
            #                         #
            ###########################
 
+v1.1.0
+------
+Release date: 2024-11-21
+
+* Add of the method "update_gas_content" in Gatiab class
+    - The initial od LUT can now be modified to match with the new columnar gas content
+* Some improvements and corrections
+    - Now package data are considered in the pyproject toml file
+    - New optional paramater in method print_gas_content
+    - Correction in the example section of the README file 
+
+
 v1.0.2
 ------
 Release date: 2024-11-20
