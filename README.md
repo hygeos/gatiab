@@ -1,9 +1,13 @@
 # GATIAB
+
+[![image](https://img.shields.io/pypi/v/gatiab.svg)](https://pypi.python.org/pypi/gatiab)
+[![image](https://pepy.tech/badge/gatiab)](https://pepy.tech/project/gatiab)
+
 GATIAB (Gasous Absorption Transmissions at Instrument Averaged Bands). \
 This module provides gaseous transmissions base on CKDMIP idealized Look-Up tables and sensor spectral response functions.
 
 Mustapha Moulana  
-[HYGEOS](www.hygeos.com)
+[HYGEOS](https://hygeos.com/en/)
 
 -----------------------------------------
 
