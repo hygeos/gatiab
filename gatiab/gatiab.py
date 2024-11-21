@@ -461,10 +461,12 @@ class Gatiab(object):
                 (simpson(y=self.dens_gas_hl, x=-self.z_atm)*1e5)
         return gas_content
     
-    def print_gas_content(self):
+    def print_gas_content(self, fmt='%.3F'):
 
-        if self.gas == 'O3': print(f'gas content ({self.gas}) = ', round(self.get_gas_content(),3), " DU")
-        else: print(f'gas content ({self.gas}) = ', round(self.get_gas_content(),3), " g cm-2")
+        # if self.gas == 'O3': print(f'gas content ({self.gas}) = ', round(self.get_gas_content(),3), " DU")
+        # else: print(f'gas content ({self.gas}) = ', round(self.get_gas_content(),3), " g cm-2")
+        if self.gas == 'O3': print("gas content (" + self.gas + ") = " + fmt % self.get_gas_content() + " DU")
+        else: print("gas content (" + self.gas + ") = " + fmt % self.get_gas_content() + " g cm-2")
         
     def calc(self, gas_content, air_mass, p0, srf_wvl, rsrf, save=False, dir_save='./'):
         """
