@@ -575,3 +575,72 @@ class Gatiab(object):
             if os.path.isfile(path_to_file): os.remove(path_to_file)
             ds.to_netcdf(path_to_file)
         return ds
+    
+
+    def update_gas_content(self, gas_content, save=False, dir_save='./'):
+        """
+        Update the gas optical depth LUT with a new columnar gas content
+        
+        - Update self.od_lut, self.mole_fraction_hl and self.dens_gas_hl
+        
+        Parameters
+        ----------
+        gas_content : float
+            Gas content, in dopson for O3 and in g cm-2 for other gas
+        save : bool, optional
+            If True, save output in netcdf format
+        dir_save : str, optional
+            Output directory where to save the updated optical depth lut
+
+        """
+
+        # convert to abs coeff then interpolate
+        ot = self.od['optical_depth'].values.astype(np.float64)
+        ot = np.append(np.zeros((1,len(self.wavenumber))), ot, axis=0).astype(np.float64)
+        ot = np.swapaxes(ot, 0,1)
+        dz = diff1(self.z_atm).astype(np.float64)
+        with np.errstate(invalid='ignore'):
+            k = abs(ot/dz)
+        k[np.isnan(k)] = 0
+        sl = slice(None,None,1)
+        k = k[:,sl]
+        C_abs = np.swapaxes(k, 0,1)
+
+        if self.gas == 'O3':
+            dens_gas_U =  self.dens_gas_hl * (2.6867e16 * gas_content / (simpson(y=self.dens_gas_hl, x=-self.z_atm) * 1e5))
+            units = 'Dobson'
+        else:
+            dens_gas_U =  self.dens_gas_hl * (gas_content / molar_mass[self.gas.lower()] * constants.Avogadro / (simpson(y=self.dens_gas_hl, x=-self.z_atm) * 1e5))
+            units = 'gramme per square centimeter'
+
+        # reconvert to optical depth
+        dz = np.abs(diff1(self.z_atm))
+        od = dz[:,None] * C_abs
+        fac_U = dens_gas_U[:]/self.dens_gas_hl[:]
+        tau= fac_U[:,None] * od[:]
+        tau[tau<0] = 0.
+
+        # compute the new mole fractions
+        mole_fraction_hl = (dens_gas_U[:]*1e6* constants.Boltzmann*self.T_hl)/(self.P_hl)
+        z_fl = self.z_atm[1:] + 0.5*np.abs(np.diff(self.z_atm))
+        mole_fraction_fl = interp1d(self.z_atm, mole_fraction_hl)(z_fl)
+
+        # create the new od LUT
+        ds = self.od.copy()
+        ds['optical_depth'] = xr.DataArray(tau[1:,:].astype(np.float32), dims=['level', 'wavenumber'], attrs={'units':'None' , 'description':'optical depth'})
+        ds['mole_fraction_fl'] = xr.DataArray(mole_fraction_fl, dims=['level'], attrs={'units':'None' , 'description':'full level mole fraction'})
+        ds['mole_fraction_hl'] = xr.DataArray(mole_fraction_hl, dims=['half_level'], attrs={'units':'None' , 'description':'half level mole fraction'})
+        date = datetime.now().strftime("%Y-%m-%d")
+        ds = ds.assign_attrs(experiment = f"{self.atm} rescaled for {self.gas} columnar content of {gas_content:.3F} {units}, based on Idealized CKDMIP interpolation",
+                             date = date, source = ds.source + f' before and v{GATIAB_VERSION} after rescaling')
+
+        if save :
+            save_filename = f"od_{self.gas}_{self.atm}_U-{gas_content:.2E}_ckdmip_idealized_solar_spectra.nc"
+            path_to_file = Path.joinpath(Path(dir_save), save_filename)
+            if os.path.isfile(path_to_file): os.remove(path_to_file)
+            ds.to_netcdf(path_to_file)
+
+        # Update the attributs
+        self.od = ds
+        self.mole_fraction_hl = mole_fraction_hl
+        self.dens_gas_hl = dens_gas_U
