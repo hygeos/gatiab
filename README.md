@@ -1,6 +1,7 @@
 # GATIAB
 
 [![image](https://img.shields.io/pypi/v/gatiab.svg)](https://pypi.python.org/pypi/gatiab)
+[![image](https://img.shields.io/conda/vn/conda-forge/gatiab.svg)](https://anaconda.org/conda-forge/gatiab)
 [![image](https://pepy.tech/badge/gatiab)](https://pepy.tech/project/gatiab)
 
 GATIAB (Gasous Absorption Transmissions at Instrument Averaged Bands). \
