@@ -27,14 +27,22 @@ $ make auxdata_atm
 ```
 
 ## Installation
-The module can be installed using the following command:
+The module can be installed using one the following commands:
+```shell
+$ conda install -c conda-forge gatiab
 ```
+
+```shell
+$ pip install gatiab
+```
+
+```shell
 $ pip install git+https://github.com/hygeos/gatiab.git
 ```
 
 ## Testing
 Example of pytest.ini file:
-```
+```ini
 [pytest]
 addopts=
     --dir-ckdmip="/path/to/ckdmip/dir/"
@@ -44,7 +52,7 @@ addopts=
 Run the command `pytest tests/` to check that everything is running correctly.
 
 ## Exemples
-```
+```python
 from gatiab import ckdmip2od, Gatiab
 import xarray as xr
 import glob
