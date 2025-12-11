@@ -401,14 +401,14 @@ def ckdmip2od(gas, dir_ckdmip, dir_atm, atm='afglus', wvn_min = 2499.99, wvn_max
     ds = xr.Dataset(coords={'level':(np.arange(n_afgl_hl-1)+1).astype(np.int32),
                             'half_level':(np.arange(n_afgl_hl)+1).astype(np.int32),
                             'wavenumber':wavn})
-    ds['P_fl'] = xr.DataArray(P_afgl_fl.astype(np.float32), dims=['level'], attrs={'units':'Pascal' , 'description':'Full level pressure'})
-    ds['T_fl'] = xr.DataArray(T_afgl_fl.astype(np.float32), dims=['level'], attrs={'units':'Kelvin' , 'description':'Full level temperature'})
-    ds['P_hl'] = xr.DataArray(P_afgl_hl.astype(np.float32), dims=['half_level'], attrs={'units':'Pascal' , 'description':'half level pressure'})
-    ds['T_hl'] = xr.DataArray(T_afgl_hl.astype(np.float32), dims=['half_level'], attrs={'units':'Kelvin' , 'description':'half level temperature'})
+    ds['P_fl'] = xr.DataArray(P_afgl_fl.astype(np.float32), dims=['level'], attrs={'units':'Pa' , 'description':'Full level pressure'})
+    ds['T_fl'] = xr.DataArray(T_afgl_fl.astype(np.float32), dims=['level'], attrs={'units':'K' , 'description':'Full level temperature'})
+    ds['P_hl'] = xr.DataArray(P_afgl_hl.astype(np.float32), dims=['half_level'], attrs={'units':'Pa' , 'description':'half level pressure'})
+    ds['T_hl'] = xr.DataArray(T_afgl_hl.astype(np.float32), dims=['half_level'], attrs={'units':'K' , 'description':'half level temperature'})
     ds['mole_fraction_fl'] = xr.DataArray(mole_fraction_afgl_fl, dims=['level'], attrs={'units':'None' , 'description':'full level mole fraction'})
     ds['mole_fraction_hl'] = xr.DataArray(mole_fraction_afgl_hl, dims=['half_level'], attrs={'units':'None' , 'description':'half level mole fraction'})
     ds['optical_depth'] = xr.DataArray(tau_gas.astype(np.float32), dims=['level', 'wavenumber'], attrs={'units':'None' , 'description':'optical depth'})
-    ds['z_atm'] = xr.DataArray(z_afgl_hl, dims=['half_level'], attrs={'units':'Kilometer' , 'description':'atmosphere height profil'})
+    ds['z_atm'] = xr.DataArray(z_afgl_hl, dims=['half_level'], attrs={'units':'km' , 'description':'atmosphere height profil'})
     date = datetime.now().strftime("%Y-%m-%d")
     ds.attrs = {'name': 'Spectral optical depth profiles of ' + gas,
                 'experiment': atm + ' based on Idealized CKDMIP interpolation',
@@ -569,11 +569,11 @@ class Gatiab(object):
                                    dims=["lambda", "U", "M", "p0"],
                                    coords={'lambda':bands, 'U':gas_content, 'M':air_mass, 'p0':p0})
         
-        ds['lambda'].attrs = {'units':'Nanometers' , 'description':'Instrument averaged bands'}
+        ds['lambda'].attrs = {'units':'nm' , 'description':'Instrument averaged bands'}
         if self.gas == 'O3': ds['U'].attrs = {'units':'Dobson' , 'description':'Total column content of the gas'}
-        else: ds['U'].attrs = {'units':'Gramme per square centimeter' , 'description':'Total column content of the gas'}
+        else: ds['U'].attrs = {'units':'g/cm²' , 'description':'Total column content of the gas'}
         ds['M'].attrs = {'units':'None' , 'description':'Airmass i.e. ratio of slant path optical depth and vertical optical depth'}
-        ds['p0'].attrs = {'units':'Hectopascal' , 'description':'Pressure at ground level'}
+        ds['p0'].attrs = {'units':'hPa' , 'description':'Pressure at ground level'}
         ds['trans'].attrs = {'units':'None' , 'description': self.gas + ' transmission'}
 
         date = datetime.now().strftime("%Y-%m-%d")
@@ -620,7 +620,7 @@ class Gatiab(object):
             units = 'Dobson'
         else:
             dens_gas_U =  self.dens_gas_hl * (gas_content / molar_mass[self.gas.lower()] * constants.Avogadro / (simpson(y=self.dens_gas_hl, x=-self.z_atm) * 1e5))
-            units = 'gramme per square centimeter'
+            units = 'g/cm²'
 
         # reconvert to optical depth
         dz = np.abs(diff1(self.z_atm))
