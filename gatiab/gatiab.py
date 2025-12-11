@@ -503,7 +503,17 @@ class Gatiab(object):
 
         trans_gas = np.zeros((nbands,n_U,n_M,n_p0), dtype=np.float64)
 
+        wav_min = 1e7/self.wavenumber[-1]
+        wav_max = 1e7/self.wavenumber[0]
+
         for iband in range (0, nbands):
+
+            # Check that current band is defined in the range of the LUT
+            if (srf_wvl[iband][0] < wav_min) or (srf_wvl[iband][0] > wav_max):
+                raise ValueError(f'band {iband} ({srf_wvl[iband][-1]} to '
+                                 f'{srf_wvl[iband][0]} nm) is defined outside range '
+                                 f'({wav_min} to {wav_max} nm)')
+
             wvn_bi = np.float64(1.)/srf_wvl[iband].astype(np.float64)*1e7
             wvn_bi_extented = self.wavenumber[(lambda x: np.logical_and(x >=np.min(wvn_bi)-1, x <=np.max(wvn_bi)+1))(self.wavenumber)]
             lut_gas_bi = self.od.sel(wavenumber = wvn_bi_extented)
