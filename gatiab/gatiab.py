@@ -34,20 +34,9 @@ def get_binary_mat(ndim):
     """
     Compute matrix filled with binary values
     """
-    
-    counter = np.zeros(ndim)
-    idb = np.zeros(ndim)
-    bin_array = np.zeros((ndim**2,ndim), dtype=np.int32)
-    for i in range (0, ndim**2):
-        for j in range(0,ndim):
-            if (counter[j] == j+1):
-                if (idb[j] == 0): idb[j] = 1
-                else: idb[j] = 0
-                counter[j] = 0
-            bin_array[i,j] = idb[j]
-        counter= counter+1
+    indices = np.arange(ndim**2)
+    return ((indices[:, np.newaxis] >> np.arange(ndim)) & 1).astype(np.int32)
 
-    return bin_array
 
 def vec_float_indexing(data, keys):
     """
