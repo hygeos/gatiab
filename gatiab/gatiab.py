@@ -416,6 +416,7 @@ def ckdmip2od(gas, dir_ckdmip, dir_atm, atm='afglus', wvn_min = 2499.99, wvn_max
     if save :
         save_filename = f"od_{gas}_{atm}_ckdmip_idealized_solar_spectra.nc"
         path_to_file = Path.joinpath(Path(dir_save), save_filename)
+        dir_save.mkdir(parents=True, exist_ok=True)
         if os.path.isfile(path_to_file): os.remove(path_to_file)
         ds.to_netcdf(path_to_file)
     
