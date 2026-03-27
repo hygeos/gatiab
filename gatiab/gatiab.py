@@ -4,7 +4,6 @@
 import os
 import numpy as np
 from scipy import constants
-import glob
 import xarray as xr
 from tqdm import tqdm
 from scipy.interpolate import make_interp_spline, interp1d
@@ -269,7 +268,7 @@ def ckdmip2od(gas, dir_ckdmip, dir_atm, atm='afglus', wvn_min = 2499.99, wvn_max
     """
 
     files_name = "ckdmip_idealized_sw_spectra_" + gas.lower() + "_const*.h5"
-    ckdmip_files = sorted(glob.glob(dir_ckdmip + files_name))
+    ckdmip_files = sorted(Path(dir_ckdmip).glob(files_name))
 
     check_input_ckdmip2od(gas, wvn_min, wvn_max, ckdmip_files)
 
