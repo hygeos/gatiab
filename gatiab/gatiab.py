@@ -76,7 +76,7 @@ def vec_float_indexing(data, keys):
 
     nkeys = len(keys)
 
-    # Find interpolation shape  # TODO this part can be improved
+    # Find interpolation shape
     dims_array = None
     index0 = []
     for i in range(nkeys):
@@ -93,21 +93,31 @@ def vec_float_indexing(data, keys):
 
     isinterp = [not isinstance(k, slice) for k in keys]
     interp_keys_idx = [i for i, e in enumerate(isinterp) if e]
-
     ninterp = len(interp_keys_idx)
 
     bmat = get_binary_mat(nkeys)
     res = 0
     keys_bis = keys.copy()
     for iter in range(0, 2**ninterp):
-        fac=1
-        k = []
-        for ik in range (0, ninterp):
-            k.append(np.floor(keys[interp_keys_idx[ik]]).astype(np.int32) + bmat[iter,interp_keys_idx[ik]])
-            diff = np.abs(k[ik] - keys[interp_keys_idx[ik]])
-            fac *= (1-diff)
-            keys_bis[interp_keys_idx[ik]] = k[ik]
-        res += fac.reshape(shp_int)  * data[tuple(keys_bis)]
+        fac = 1
+        for ik in range(0, ninterp):
+            dim_idx = interp_keys_idx[ik]
+            # Clamp inf to N-2 max (like LUT), so inf+1 never exceeds N-1
+            inf = np.clip(
+                np.floor(keys[dim_idx]).astype(np.int32),
+                0, data.shape[dim_idx] - 2
+            )
+            idx = inf + bmat[iter, dim_idx]
+            x = keys[dim_idx] - inf  # weight
+            if bmat[iter, dim_idx]:
+                fac *= x
+            else:
+                fac *= (1 - x)
+            keys_bis[dim_idx] = idx
+        if isinstance(fac, np.ndarray):
+            res = res + fac.reshape(shp_int) * data[tuple(keys_bis)]
+        else:
+            res = res + fac * data[tuple(keys_bis)]
 
     return res
 
