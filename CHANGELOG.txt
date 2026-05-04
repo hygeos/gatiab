@@ -5,6 +5,29 @@
            #                         #
            ###########################
 
+v1.1.1
+------
+Release date: 2026-05-04
+
+* Robustness and error handling improvements
+    - Avoid crash with ckdmip2od when the output directory does not exist
+    - Fail loudly when a spectral band is not defined over the LUT range
+    - Correct out-of-bounds error in vec_float_indexing with key=N-1
+
+* Performance and code maintenance
+    - Optimize get_binary_mat function
+    - Use Path.glob instead of glob and automatically convert ckdmip input to Path objects
+
+* Packaging and metadata updates
+    - Add pixi section in pyproject toml file
+    - Use standard units abbreviations
+
+* Documentation updates
+    - Update README with corrected HYGEOS URL and additional usage information
+    - Add Anaconda/conda-forge URL in README
+    - General README update and cleanup
+
+
 v1.1.0
 ------
 Release date: 2024-11-21
