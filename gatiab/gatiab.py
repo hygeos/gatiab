@@ -95,21 +95,24 @@ def vec_float_indexing(data, keys):
     interp_keys_idx = [i for i, e in enumerate(isinterp) if e]
     ninterp = len(interp_keys_idx)
 
-    bmat = get_binary_mat(nkeys)
     res = 0
     keys_bis = keys.copy()
     for iter in range(0, 2**ninterp):
         fac = 1
         for ik in range(0, ninterp):
             dim_idx = interp_keys_idx[ik]
+            # Bit ik of iter (position among the interpolated keys, like LUT),
+            # not the raw dimension position, so that slices interleaved with
+            # interpolated keys do not shift the corner selection
+            bit = (iter >> ik) & 1
             # Clamp inf to N-2 max (like LUT), so inf+1 never exceeds N-1
             inf = np.clip(
                 np.floor(keys[dim_idx]).astype(np.int32),
                 0, data.shape[dim_idx] - 2
             )
-            idx = inf + bmat[iter, dim_idx]
+            idx = inf + bit
             x = keys[dim_idx] - inf  # weight
-            if bmat[iter, dim_idx]:
+            if bit:
                 fac *= x
             else:
                 fac *= (1 - x)
