@@ -27,6 +27,11 @@ def _get_version() -> str:
     The version is read from pyproject.toml when running from a
     source checkout (python >= 3.11), else from the installed
     package metadata, with '0.0.0' as final fallback.
+
+    Returns
+    -------
+    str
+        The gatiab version
     """
     if tomllib is not None:
         try:
