@@ -651,7 +651,7 @@ class Gatiab:
             gas_content = (
                 MOLAR_MASS[self.gas.lower()]/constants.Avogadro
             ) * (simpson(y=self.dens_gas_hl, x=-self.z_atm)*1e5)
-        return gas_content
+        return cast(float, gas_content)
 
     def print_gas_content(self, fmt: str = '%.3F') -> None:
         """Print the gas content with its unit."""

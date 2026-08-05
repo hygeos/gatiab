@@ -46,8 +46,27 @@ gatiab = { path = ".", editable = true }
 
 [tool.pixi.tasks]
 test = "pytest"
+typecheck = "pyright"
 
 [tool.pixi.dependencies]
 notebook = ">=7.5.5,<8"
 ipywidgets = ">=8.1.8,<9"
 pytest = ">=8.3.2"
+pyright = ">=1.1"
+
+[tool.pyright]
+# Only check the maintained modules (gatiab_od.py and pysrf.py are
+# untracked work-in-progress files)
+include = ["gatiab/gatiab.py", "gatiab/__init__.py", "tests"]
+exclude = ["gatiab/gatiab_od.py", "gatiab/pysrf.py"]
+# Suppress "partially unknown" noise from third-party libraries with
+# incomplete stubs (e.g. xarray)
+reportUnknownMemberType = "none"
+reportUnknownVariableType = "none"
+reportUnknownArgumentType = "none"
+reportUnknownParameterType = "none"
+# Suppress call-issue and argument-type errors caused by incomplete
+# stubs (e.g. missing parameters in xarray stubs, scipy interp1d
+# rejecting fill_value='extrapolate')
+reportCallIssue = "none"
+reportArgumentType = "none"
