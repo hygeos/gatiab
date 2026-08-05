@@ -5,8 +5,9 @@
            #                         #
            ###########################
 
-Unreleased
-----------
+v1.1.2
+------
+Release date: 2026-08-05
 
 * Bug fixes
     - Correct wrong interpolation results in vec_float_indexing when a slice
