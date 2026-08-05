@@ -5,6 +5,25 @@
            #                         #
            ###########################
 
+Unreleased
+----------
+
+* Bug fixes
+    - Correct wrong interpolation results in vec_float_indexing when a slice
+      precedes an interpolated dimension (the corner-selection bit was read at
+      the raw dimension position instead of the position among interpolated
+      keys, unlike LUT.__getitem__ of the luts package). This affected the
+      H2O path of ckdmip2od with float_indexing='fast'.
+    - vec_float_indexing no longer crashes with 1-D data or with 5 or more
+      interpolated dimensions
+
+* Tests
+    - Add exhaustive unit tests for vec_float_indexing
+      (tests/test_vec_float_indexing.py), cross-checked against
+      scipy RegularGridInterpolator and the luts package
+    - Add pytest to the pixi environment and a "test" pixi task
+
+
 v1.1.1
 ------
 Release date: 2026-05-04
