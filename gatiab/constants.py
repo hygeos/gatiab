@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """Package-level constants.
 
 This module defines the gatiab version (read automatically, with

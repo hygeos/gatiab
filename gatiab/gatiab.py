@@ -41,7 +41,7 @@ import xarray as xr
 from numpy.typing import NDArray
 from scipy import constants
 from scipy.integrate import simpson
-from scipy.interpolate import make_interp_spline, interp1d
+from scipy.interpolate import interp1d, make_interp_spline
 from tqdm import tqdm
 
 from gatiab.constants import (
@@ -91,7 +91,8 @@ def vec_float_indexing(
     array([[0, 1],
           [2, 3],
           [4, 5]])
-    >>> m2 = vec_float_indexing(m1, [np.array([0.8, 1.1, 1.5]), slice(None)])
+    >>> keys = [np.array([0.8, 1.1, 1.5]), slice(None)]
+    >>> m2 = vec_float_indexing(m1, keys)
     >>> m2
     array([[1.6, 2.6],
            [2.2, 3.2],
@@ -243,7 +244,7 @@ def find_layer_index(dz: NDArray, z_final: float) -> int | None:
     ilayer = 0
     nz_idea = len(dz)
     while np.sum(dz[nz_idea-ilayer:]) < z_final:
-        ilayer += int(1)
+        ilayer += 1
         if ilayer >= nz_idea:
             ilayer = None
             return ilayer

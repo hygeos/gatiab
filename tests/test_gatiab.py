@@ -1,23 +1,27 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 from __future__ import annotations
 
-import pytest
-import numpy as np
-import xarray as xr
 import glob
 import os
+
+import numpy as np
+import pytest
+import xarray as xr
+
 ROOTPATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 import sys
+
 sys.path.insert(0, ROOTPATH)
 
-from gatiab import ckdmip2od, Gatiab
-from numpy.typing import NDArray
-from pathlib import Path
 import logging
+from pathlib import Path
 
-# ******************************* logging *******************************
+from numpy.typing import NDArray
+
+from gatiab import Gatiab, ckdmip2od
+
+# ****************************** logging *******************************
 # Create log file
 Path(os.path.join(ROOTPATH, "tests/logs/")).mkdir(parents=True, exist_ok=True)
 
@@ -54,7 +58,7 @@ file_handler.setFormatter(formatter)
 
 # Add the file handler to the logger
 logger.addHandler(file_handler)
-# ***********************************************************************
+# **********************************************************************
 
 GAS_LIST: list[str] = ['O3']
 

@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """Unit tests for vec_float_indexing and get_binary_mat.
 
@@ -23,7 +22,7 @@ from numpy.testing import assert_allclose, assert_array_equal
 from numpy.typing import NDArray
 from scipy.interpolate import RegularGridInterpolator
 
-from gatiab import vec_float_indexing, get_binary_mat
+from gatiab import get_binary_mat, vec_float_indexing
 
 
 @pytest.fixture
