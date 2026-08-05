@@ -145,12 +145,19 @@ def test_gas(
     The transmissions are computed at the S3A OLCI bands and
     compared with the precomputed reference values.
     """
+    dir_ckdmip = request.config.getoption("--dir-ckdmip")
+    dir_atm = request.config.getoption("--dir-atm")
+    if dir_ckdmip is None or dir_atm is None:
+        pytest.skip("--dir-ckdmip and --dir-atm options not provided")
+    if not Path(dir_ckdmip).is_dir() or not Path(dir_atm).is_dir():
+        pytest.skip("ckdmip/atmosphere data directories not found")
+
     rsrf, srf_wvl = get_rsrf_data
 
     ds = ckdmip2od(
         gas=gas,
-        dir_ckdmip=request.config.getoption("--dir-ckdmip"),
-        dir_atm=request.config.getoption("--dir-atm"),
+        dir_ckdmip=dir_ckdmip,
+        dir_atm=dir_atm,
         wvn_min=9550., wvn_max=26000.,
     )
 

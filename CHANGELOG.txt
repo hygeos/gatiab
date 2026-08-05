@@ -29,6 +29,9 @@ Release date: 2026-08-05
     - Add pyright type checking with a "typecheck" pixi task
 
 * Tests
+    - Track tests/conftest.py and skip the tests needing the CKDMIP
+      and atmosphere data when the --dir-ckdmip and --dir-atm options
+      are not provided (fixes the continuous integration runs)
     - Add exhaustive unit tests for vec_float_indexing
       (tests/test_vec_float_indexing.py), cross-checked against
       scipy RegularGridInterpolator and the luts package
