@@ -1,9 +1,31 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-"""GATIAB core module.
+"""
+Core module of the gatiab package.
 
-Generate gas optical depth look-up tables from CKDMIP data and
-compute gaseous transmissions at instrument averaged bands.
+This module generates gas optical depth look-up tables from the
+CKDMIP shortwave idealized spectra for a given AFGL atmosphere,
+and computes the gaseous transmissions at instrument averaged
+bands using the spectral response functions of the instrument.
+
+Key Functions and Classes
+-------------------------
+ckdmip2od
+    Generate the optical depth look-up table of a gas for a given
+    AFGL atmosphere, from the CKDMIP idealized look-up tables.
+Gatiab
+    Compute the gaseous transmissions at instrument averaged
+    bands from an optical depth look-up table, as function of the
+    gas content, the airmass and the ground pressure. The
+    columnar gas content of the look-up table can also be
+    rescaled (update_gas_content).
+vec_float_indexing
+    Vectorized multilinear interpolation indexing with float
+    scalars/1d arrays, based on the Idx method of the luts
+    package.
+get_zatm
+    Altitude profile from the pressure and temperature
+    variability, with the barometric or hypsometric method.
+get_bands
+    SRF-weighted central wavelengths of the instrument bands.
 """
 
 from __future__ import annotations
