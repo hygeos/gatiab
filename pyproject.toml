@@ -57,7 +57,12 @@ pyright = ">=1.1"
 [tool.pyright]
 # Only check the maintained modules (gatiab_od.py and pysrf.py are
 # untracked work-in-progress files)
-include = ["gatiab/gatiab.py", "gatiab/__init__.py", "tests"]
+include = [
+    "gatiab/gatiab.py",
+    "gatiab/constants.py",
+    "gatiab/__init__.py",
+    "tests",
+]
 exclude = ["gatiab/gatiab_od.py", "gatiab/pysrf.py"]
 # Suppress "partially unknown" noise from third-party libraries with
 # incomplete stubs (e.g. xarray)

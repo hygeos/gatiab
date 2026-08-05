@@ -22,26 +22,12 @@ from scipy.integrate import simpson
 from scipy.interpolate import make_interp_spline, interp1d
 from tqdm import tqdm
 
-GATIAB_VERSION: str = '1.1.1'
-
-ACCEL_DUE_TO_GRAVITY: float = 9.80665  # m s-2
-MOLAR_MASS_AIR: float = 28.970  # g mol-1 dry air
-
-MOLAR_MASS: dict[str, float] = {
-    'h2o': 18.0152833,
-    'co2': 44.011,
-    'o3': 47.9982,
-    'n2o': 44.013,
-    'co': 28.0101,
-    'ch4': 16.043,
-    'o2': 31.9988,
-    'cfc11': 137.3686,
-    'cfc12': 120.914,
-    'hcfc22': 86.469,
-    'ccl4': 153.823,
-    'no2': 46.0055,
-    'n2': 28.0134,
-}
+from gatiab.constants import (
+    ACCEL_DUE_TO_GRAVITY,
+    MOLAR_MASS,
+    MOLAR_MASS_AIR,
+    VERSION,
+)
 
 
 def get_binary_mat(ndim: int) -> NDArray[np.int32]:
@@ -592,7 +578,7 @@ def ckdmip2od(
         'experiment': atm + ' based on Idealized CKDMIP interpolation',
         'date': date,
         'source': 'Created by HYGEOS, using CKDMIP data and '
-                  f'GATIAB v{GATIAB_VERSION}',
+                  f'GATIAB v{VERSION}',
     }
     if save:
         save_filename = f"od_{gas}_{atm}_ckdmip_idealized_solar_spectra.nc"
@@ -860,7 +846,7 @@ class Gatiab:
         date = datetime.now().strftime("%Y-%m-%d")
         ds.attrs = {
             'atm': self.atm, 'date': date,
-            'source': f'Created using GATIAB v{GATIAB_VERSION}',
+            'source': f'Created using GATIAB v{VERSION}',
         }
         if save:
             save_filename = f"trans_{self.gas}_{self.atm}_gatiab.nc"
@@ -964,7 +950,7 @@ class Gatiab:
                 "CKDMIP interpolation"
             ),
             date=date,
-            source=ds.source + f' before and v{GATIAB_VERSION} after '
+            source=ds.source + f' before and v{VERSION} after '
             'rescaling',
         )
 
