@@ -13,10 +13,10 @@ from pathlib import Path
 
 GATIAB_VERSION = '1.1.1'
 
-AccelDueToGravity  = 9.80665 # m s-2
-MolarMassAir       = 28.970  # g mol-1 dry air
+ACCEL_DUE_TO_GRAVITY  = 9.80665 # m s-2
+MOLAR_MASS_AIR       = 28.970  # g mol-1 dry air
 
-molar_mass={ 'h2o'   : 18.0152833,
+MOLAR_MASS={ 'h2o'   : 18.0152833,
              'co2'   : 44.011,
              'o3'    : 47.9982,
              'n2o'   : 44.013,
@@ -293,7 +293,7 @@ def ckdmip2od(gas, dir_ckdmip, dir_atm, atm='afglus', wvn_min = 2499.99, wvn_max
     nlvl = len(ds_gas_imf['level'].values)
     P_hl = ds_gas_imf['pressure_hl'].values[0,:]
     nmf = len(ckdmip_files)
-    M_air = MolarMassAir*1e-3
+    M_air = MOLAR_MASS_AIR*1e-3
 
     z_afgl_hl = afgl_pro['z_atm'].values[:] # in Km
     n_afgl_hl = len(z_afgl_hl)
@@ -353,7 +353,7 @@ def ckdmip2od(gas, dir_ckdmip, dir_atm, atm='afglus', wvn_min = 2499.99, wvn_max
                 C_ext_iw_imf_bis = np.zeros((nc, nlvl,nwc_end-nwc_ini), dtype=np.float64)
                 for ilvl in range (0, nlvl):
                     for ic in range (0, nc):
-                        C_ext_iw_imf_bis[ic,ilvl,:] = (AccelDueToGravity * M_air * OD_gas_imf_iw[ic,ilvl,:].astype(np.float64)) / \
+                        C_ext_iw_imf_bis[ic,ilvl,:] = (ACCEL_DUE_TO_GRAVITY * M_air * OD_gas_imf_iw[ic,ilvl,:].astype(np.float64)) / \
                             ( mole_fraction[imf] * (P_hl[ilvl+1] - P_hl[ilvl] ) )
 
                 for ip in range (0, nP):
@@ -394,7 +394,7 @@ def ckdmip2od(gas, dir_ckdmip, dir_atm, atm='afglus', wvn_min = 2499.99, wvn_max
     print("reconvert to optical depth...")
     with tqdm(total=int(n_afgl_hl-1)) as bar_lvl:
         for ilvl in range (0, n_afgl_hl-1):
-            tau_gas[ilvl] = (C_ext_gas[ilvl,:] * mole_fraction_afgl_fl[ilvl].astype(np.float64) * (P_afgl_hl[ilvl+1] - P_afgl_hl[ilvl])) / (AccelDueToGravity * M_air)
+            tau_gas[ilvl] = (C_ext_gas[ilvl,:] * mole_fraction_afgl_fl[ilvl].astype(np.float64) * (P_afgl_hl[ilvl+1] - P_afgl_hl[ilvl])) / (ACCEL_DUE_TO_GRAVITY * M_air)
             bar_lvl.update(1)
     print("reconverted to optical depth.")
 
@@ -459,7 +459,7 @@ class Gatiab(object):
         if self.gas == 'O3':
             gas_content = (1/2.6867e16)*(simpson(y=self.dens_gas_hl, x=-self.z_atm)*1e5)
         else:
-            gas_content = (molar_mass[self.gas.lower()]/constants.Avogadro)* \
+            gas_content = (MOLAR_MASS[self.gas.lower()]/constants.Avogadro)* \
                 (simpson(y=self.dens_gas_hl, x=-self.z_atm)*1e5)
         return gas_content
     
@@ -530,7 +530,7 @@ class Gatiab(object):
                     if self.gas == 'O3':
                         dens_gas_iUp =  dens_gas_ip * (2.6867e16 * gas_content[iU] / (simpson(y=dens_gas_ip, x=-z_atm_ib) * 1e5))
                     else:
-                        dens_gas_iUp =  dens_gas_ip * (gas_content[iU]/ molar_mass[self.gas.lower()] * constants.Avogadro / (simpson(y=dens_gas_ip, x=-z_atm_ib) * 1e5))
+                        dens_gas_iUp =  dens_gas_ip * (gas_content[iU]/ MOLAR_MASS[self.gas.lower()] * constants.Avogadro / (simpson(y=dens_gas_ip, x=-z_atm_ib) * 1e5))
                     
                     # convert to abs coeff then interpolate
                     ot = lut_gas_bi['optical_depth'].values.astype(np.float64)
@@ -621,7 +621,7 @@ class Gatiab(object):
             dens_gas_U =  self.dens_gas_hl * (2.6867e16 * gas_content / (simpson(y=self.dens_gas_hl, x=-self.z_atm) * 1e5))
             units = 'Dobson'
         else:
-            dens_gas_U =  self.dens_gas_hl * (gas_content / molar_mass[self.gas.lower()] * constants.Avogadro / (simpson(y=self.dens_gas_hl, x=-self.z_atm) * 1e5))
+            dens_gas_U =  self.dens_gas_hl * (gas_content / MOLAR_MASS[self.gas.lower()] * constants.Avogadro / (simpson(y=self.dens_gas_hl, x=-self.z_atm) * 1e5))
             units = 'g/cm²'
 
         # reconvert to optical depth
