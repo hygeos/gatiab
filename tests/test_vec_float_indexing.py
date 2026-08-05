@@ -27,7 +27,7 @@ from gatiab import get_binary_mat, vec_float_indexing
 
 @pytest.fixture
 def m1() -> NDArray:
-    # The 3x2 array used in the vec_float_indexing docstring examples
+    """The 3x2 array of the vec_float_indexing docstring examples."""
     return np.arange(6).reshape(3, 2)
 
 
@@ -36,9 +36,10 @@ def rgi_oracle(
     keys_arrays: list[NDArray],
     fill_value: float | None = np.nan,
 ) -> NDArray:
-    """Reference multilinear interpolation of ``data`` at
-    fractional indices, one 1-D float array per dimension (no
-    slices).
+    """Reference multilinear interpolation at fractional indices.
+
+    The data array is interpolated with one 1-D float array per
+    dimension (no slices).
     """
     axes = [np.arange(n) for n in data.shape]
     interp = RegularGridInterpolator(
@@ -48,9 +49,7 @@ def rgi_oracle(
 
 
 class TestDocstringExamples:
-    # Executable version of the docstring examples (doctest
-    # collection is not enabled: the docstring reprs are not
-    # numpy>=2 clean)
+    """Executable version of the docstring examples."""
 
     def test_array_key_with_slice(self, m1: NDArray) -> None:
         res = vec_float_indexing(m1, [np.array([0.8, 1.1, 1.5]), slice(None)])
@@ -62,8 +61,10 @@ class TestDocstringExamples:
 
 
 class TestExactGridPoints:
-    # Integer-valued float keys must reproduce the grid values exactly
-    # (interpolation weights are exactly 0 and 1)
+    """Integer-valued float keys must reproduce the grid values.
+
+    The interpolation weights are exactly 0 and 1.
+    """
 
     @pytest.mark.parametrize('key_val', [0.0, 1.0, 2.0])
     def test_integer_valued_array_key(
@@ -85,8 +86,11 @@ class TestExactGridPoints:
 
 
 class TestEdgeKeys:
-    # key == N-1 raised IndexError before commit a098939; key == 0
-    # covers the other clamp boundary
+    """Tests at the clamp boundaries.
+
+    key == N-1 raised IndexError before commit a098939; key == 0
+    covers the other clamp boundary.
+    """
 
     def test_array_key_equals_n_minus_1(self, m1: NDArray) -> None:
         res = vec_float_indexing(m1, [np.array([2.0]), slice(None)])
@@ -101,10 +105,13 @@ class TestEdgeKeys:
 
 
 class TestSlicePositions:
-    # A slice placed before an interpolated key must not shift the
-    # corner selection of the following dimensions (regression
-    # test: bit position among interpolated keys vs raw dimension
-    # position, as in luts)
+    """A slice must not shift the following corner selections.
+
+    A slice placed before an interpolated key must not shift the
+    corner selection of the following dimensions (regression
+    test: bit position among interpolated keys vs raw dimension
+    position, as in luts).
+    """
 
     def test_leading_slice(self, m1: NDArray) -> None:
         res = vec_float_indexing(m1, [slice(None), np.array([0.5])])
@@ -118,8 +125,11 @@ class TestSlicePositions:
         assert_allclose(res, [[7.5, 11.5, 15.5]], rtol=1e-12)
 
     def test_h2o_call_site_pattern(self) -> None:
-        # ckdmip2od H2O 'fast' path: keys = [P, T, slice(None), h2o_mf]
-        # on data of shape (nP, nT, nwc, nmf)
+        """ckdmip2od H2O 'fast' path.
+
+        keys = [P, T, slice(None), h2o_mf] on data of shape
+        (nP, nT, nwc, nmf).
+        """
         rng = np.random.default_rng(7)
         data = rng.random((3, 4, 2, 5))
         kp = rng.uniform(0.0, 2.0, 6)
@@ -133,10 +143,14 @@ class TestSlicePositions:
 
 
 class TestScalarKeys:
+    """Tests with all-scalar keys."""
 
     def test_all_scalar_keys_return_scalar(self, m1: NDArray) -> None:
-        # Crashed with AttributeError ('float' has no 'reshape') before
-        # commit a098939
+        """All-scalar keys must return a scalar.
+
+        Crashed with AttributeError ('float' has no 'reshape')
+        before commit a098939.
+        """
         res = vec_float_indexing(m1, [0.5, 0.5])
         assert np.ndim(res) == 0
         assert_allclose(res, 1.5, rtol=1e-12)
@@ -148,9 +162,11 @@ class TestScalarKeys:
 
 
 class TestOracleCrossCheck:
-    # Property-style check on random data against
-    # RegularGridInterpolator, all dimensions indexed with
-    # in-range 1-D float arrays
+    """Property-style check against RegularGridInterpolator.
+
+    Random data, all dimensions indexed with in-range 1-D float
+    arrays.
+    """
 
     @pytest.mark.parametrize('shape', [(4, 5), (4, 5, 6), (3, 4, 5, 6)])
     def test_matches_regular_grid_interpolator(
@@ -164,11 +180,14 @@ class TestOracleCrossCheck:
 
 
 class TestCallSitePatterns:
-    # Shapes and key layouts as used by ckdmip2od with
-    # float_indexing='fast'
+    """Shapes and key layouts as used by ckdmip2od ('fast' mode)."""
 
     def test_3d_trailing_slice(self) -> None:
-        # Non-H2O gases: keys = [P, T, slice(None)] on (nP, nT, nwc)
+        """Non-H2O call site: trailing slice.
+
+        keys = [P, T, slice(None)] on data of shape
+        (nP, nT, nwc).
+        """
         rng = np.random.default_rng(11)
         data = rng.random((3, 4, 5))
         kp = rng.uniform(0.0, 2.0, 6)
@@ -180,9 +199,12 @@ class TestCallSitePatterns:
             assert_allclose(res[:, iw], expected, rtol=0, atol=1e-14)
 
     def test_keys_exactly_on_last_grid_point(self) -> None:
-        # interp1d(P_fl, arange(nP)) can return exactly N-1: the whole
-        # result row must equal the last grid row (a098939 regression,
-        # call-site shape)
+        """Keys exactly on the last grid point.
+
+        interp1d(P_fl, arange(nP)) can return exactly N-1: the
+        whole result row must equal the last grid row (a098939
+        regression, call-site shape).
+        """
         rng = np.random.default_rng(12)
         data = rng.random((3, 4, 5))
         res = vec_float_indexing(
@@ -193,16 +215,24 @@ class TestCallSitePatterns:
 
 
 class TestDimensionality:
+    """Tests with low and high dimensional data."""
 
     def test_1d_data_single_key(self) -> None:
-        # Raised IndexError when corner bits came from get_binary_mat(1)
+        """1-D data with a single key.
+
+        Raised IndexError when the corner bits came from
+        get_binary_mat(1).
+        """
         data = np.arange(5, dtype=np.float64)
         res = vec_float_indexing(data, [np.array([1.5, 2.5])])
         assert_allclose(res, [1.5, 2.5], rtol=1e-12)
 
     def test_5d_data_all_array_keys(self) -> None:
-        # Raised IndexError when corner bits came from get_binary_mat(5)
-        # (5**2 rows < 2**5 combinations)
+        """5-D data with all array keys.
+
+        Raised IndexError when the corner bits came from
+        get_binary_mat(5) (5**2 rows < 2**5 combinations).
+        """
         rng = np.random.default_rng(5)
         shape = (3, 3, 3, 3, 3)
         data = rng.random(shape)
@@ -212,8 +242,11 @@ class TestDimensionality:
 
 
 class TestExtrapolation:
-    # Keys outside [0, N-1] extrapolate linearly from the edge cell
-    # (floor index clamped to [0, N-2])
+    """Keys outside [0, N-1] extrapolate linearly.
+
+    The extrapolation is from the edge cell (floor index clamped
+    to [0, N-2]).
+    """
 
     def test_below_zero(self, m1: NDArray) -> None:
         res = vec_float_indexing(m1, [np.array([-0.5]), slice(None)])
@@ -237,6 +270,7 @@ class TestExtrapolation:
 
 
 class TestInputsAndDtypes:
+    """Tests of the input handling and the output dtypes."""
 
     def test_keys_list_not_mutated(self, m1: NDArray) -> None:
         k0 = np.array([0.8, 1.1])
@@ -253,7 +287,11 @@ class TestInputsAndDtypes:
         assert res.dtype == np.float64
 
     def test_float32_data_returns_float64(self, m1: NDArray) -> None:
-        # Current behaviour (weights are float64), not a contract
+        """Float32 data returns float64.
+
+        Current behaviour (the weights are float64), not a
+        contract.
+        """
         res = vec_float_indexing(
             m1.astype(np.float32), [np.array([0.5]), slice(None)]
         )
@@ -261,6 +299,7 @@ class TestInputsAndDtypes:
 
 
 class TestGetBinaryMat:
+    """Tests of the get_binary_mat function."""
 
     def test_rows_are_little_endian_bits(self) -> None:
         bmat = get_binary_mat(3)

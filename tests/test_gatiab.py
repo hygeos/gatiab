@@ -1,5 +1,12 @@
 #!/usr/bin/env python
 
+"""Tests of the gatiab module.
+
+These tests need the CKDMIP idealized look-up tables and the AFGL
+atmosphere files, whose directories are given by the --dir-ckdmip
+and --dir-atm pytest options (see README.md).
+"""
+
 from __future__ import annotations
 
 import glob
@@ -133,8 +140,11 @@ def test_gas(
     gas: str,
     get_rsrf_data: tuple[list[NDArray], list[NDArray]],
 ) -> None:
-    # === Get the S3A OLCI spectral response data
+    """Compare the gas transmissions with the reference values.
 
+    The transmissions are computed at the S3A OLCI bands and
+    compared with the precomputed reference values.
+    """
     rsrf, srf_wvl = get_rsrf_data
 
     ds = ckdmip2od(
