@@ -17,6 +17,16 @@ Unreleased
     - vec_float_indexing no longer crashes with 1-D data or with 5 or more
       interpolated dimensions
 
+* Code organization and modernization
+    - Move the package constants into a new gatiab/constants.py module
+      and re-export them (with VERSION) from the package init
+    - The version is now read automatically, with pyproject.toml as
+      single source of truth (GATIAB_VERSION replaced by VERSION)
+    - Add type hints to all modules and reformat to PEP 8 line lengths
+      (79 for code, 72 for docstrings and comments)
+    - Rename module constants to upper snake case
+    - Add pyright type checking with a "typecheck" pixi task
+
 * Tests
     - Add exhaustive unit tests for vec_float_indexing
       (tests/test_vec_float_indexing.py), cross-checked against
