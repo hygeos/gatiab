@@ -53,10 +53,19 @@ from gatiab.constants import (
 
 
 def get_binary_mat(ndim: int) -> NDArray[np.int32]:
-    """Compute matrix filled with binary values.
+    """Compute a matrix filled with binary values.
 
-    Row ``i`` holds the little-endian binary digits of ``i``; the
-    returned array has shape ``(ndim**2, ndim)``.
+    Row ``i`` holds the little-endian binary digits of ``i``.
+
+    Parameters
+    ----------
+    ndim : int
+        The number of binary digits (columns)
+
+    Returns
+    -------
+    ndarray
+        The binary matrix, of shape (ndim**2, ndim)
     """
     indices = np.arange(ndim**2)
     return ((indices[:, np.newaxis] >> np.arange(ndim)) & 1).astype(np.int32)
@@ -65,41 +74,42 @@ def get_binary_mat(ndim: int) -> NDArray[np.int32]:
 def vec_float_indexing(
     data: NDArray, keys: Sequence[float | NDArray | slice]
 ) -> NDArray:
-    """Perform vectorized indexing with float scalars/1d arrays.
+    """Perform vectorized indexing with float scalars or 1-D arrays.
 
-    - Method based on Idx of luts module, see:
-      https://github.com/hygeos/luts
-    - Non slice objects on keys list must be all scalars or all 1d
-      arrays with same size
+    The method is based on the Idx method of the luts package
+    (https://github.com/hygeos/luts). It performs a multilinear
+    interpolation of the array values at the fractional indices.
 
     Parameters
     ----------
-    data : np.ndarray
+    data : ndarray
         The array to be indexed
-    keys : list
-        List with the scalars or 1darrays indices
+    keys : list of float, ndarray or slice
+        The list of indices, one element per dimension of data.
+        The non slice elements must be all scalars or all 1-D
+        arrays of the same size.
 
     Returns
     -------
-    R : np.ndarray
-        The indexed array
+    float or ndarray
+        The interpolated value(s)
 
     Examples
     --------
-    >>> m1 = np.arange(6).reshape(3,2)
+    >>> import numpy as np
+    >>> from gatiab import vec_float_indexing
+    >>> m1 = np.arange(6).reshape(3, 2)
     >>> m1
     array([[0, 1],
-          [2, 3],
-          [4, 5]])
+           [2, 3],
+           [4, 5]])
     >>> keys = [np.array([0.8, 1.1, 1.5]), slice(None)]
-    >>> m2 = vec_float_indexing(m1, keys)
-    >>> m2
+    >>> vec_float_indexing(m1, keys)
     array([[1.6, 2.6],
            [2.2, 3.2],
            [3. , 4. ]])
-    >>> m3 = vec_float_indexing(m1, [0.8, 0.])
-    >>> m3
-    1.6
+    >>> vec_float_indexing(m1, [0.8, 0.])
+    np.float64(1.6)
     """
 
     nkeys = len(keys)
@@ -166,48 +176,49 @@ def get_zatm(
     M_h2o: float | None = None,
     method: str = 'barometric',
 ) -> NDArray:
-    """Get z profil knowing the pressure and temperature
-    variability.
+    """Compute the atmosphere altitude profile.
 
-    - half level -> at layer altitude
-    - full level -> mean between 2 layers
+    The profile is computed from the pressure and temperature
+    variability, with the barometric or the hypsometric method.
+    The half level values are at the layer altitudes, and the full
+    level values are the means between two consecutive layers.
 
     Parameters
     ----------
-    P_hl : np.ndarray
-        Half level pressure
-    T_fl : np.ndarray
-        Full level temperature
+    P_hl : ndarray
+        The half level pressure in Pa. It must be 1-D.
+    T_fl : ndarray
+        The full level temperature in K. It must be 1-D.
     M_air : float
-        Dry air molar mass in Kg mol-1
+        The dry air molar mass in kg mol-1
     g : float
-        Gravity constant in m s-2
-    h2o_mole_frac_fl : np.ndarray, optional
-        Full level h2o mole fraction (needed if hypsometric method
-        is chosen)
-    P_fl : np.ndarray, optional
-        Full level pressure (needed if hypsometric method is
-        chosen)
+        The gravity constant in m s-2
+    h2o_mole_frac_fl : ndarray, optional
+        The full level h2o mole fraction, needed if the
+        hypsometric method is chosen. It must be 1-D.
+    P_fl : ndarray, optional
+        The full level pressure in Pa, needed if the hypsometric
+        method is chosen. It must be 1-D.
     M_h2o : float, optional
-        H2O molar mass in Kg mol-1
-    method : str
+        The h2o molar mass in kg mol-1
+    method : str, optional
         Choose between -> 'barometric' or 'hypsometric'
 
     Returns
     -------
-    Z : np.ndarray
-        z_atm grid profil in Km
+    ndarray
+        The z_atm altitude grid profile in km. It is 1-D.
     """
 
     if method != 'barometric' and method != 'hypsometric':
         raise NameError(
             "Unknown method! Please choose between: 'barometric' or "
-            "'hypsometric"
+            "'hypsometric'"
         )
 
     if method == 'hypsometric':
         epsilon = M_h2o/M_air  # pyright: ignore[reportOptionalOperand]
-        e = P_fl * h2o_mole_frac_fl  # pyright: ignore[reportOptionalOperand]
+        e = P_fl * h2o_mole_frac_fl  # pyright: ignore
 
     z = 0.
     zgrid = [0.]
@@ -237,9 +248,19 @@ def get_zatm(
 def find_layer_index(dz: NDArray, z_final: float) -> int | None:
     """Find the layer index reaching a cumulated thickness.
 
-    Return the index such that the cumulated thickness of the last
-    layers of ``dz`` reaches ``z_final``, or None if the total
-    thickness is insufficient.
+    Parameters
+    ----------
+    dz : ndarray
+        The layer thicknesses. It must be 1-D.
+    z_final : float
+        The cumulated thickness to be reached
+
+    Returns
+    -------
+    int or None
+        The index such that the cumulated thickness of the last
+        layers of dz reaches z_final, or None if the total
+        thickness is insufficient
     """
     ilayer = 0
     nz_idea = len(dz)
@@ -252,11 +273,25 @@ def find_layer_index(dz: NDArray, z_final: float) -> int | None:
 
 
 def diff1(A: NDArray, axis: int = 0, samesize: bool = True) -> NDArray:
-    """First-order difference along an axis.
+    """Compute the first-order difference along an axis.
 
     Like ``np.diff`` but, when ``samesize`` is True, the output
     keeps the input shape with zeros at the first position along
     ``axis``.
+
+    Parameters
+    ----------
+    A : ndarray
+        The input array
+    axis : int, optional
+        The axis along which the difference is taken
+    samesize : bool, optional
+        If True, the output keeps the input shape
+
+    Returns
+    -------
+    ndarray
+        The first-order difference of A
     """
     if samesize:
         B = np.zeros_like(A)
@@ -271,8 +306,18 @@ def diff1(A: NDArray, axis: int = 0, samesize: bool = True) -> NDArray:
 def get_bands(srf_wvl: list[NDArray], rsrf: list[NDArray]) -> NDArray:
     """Compute the SRF-weighted central wavelength of each band.
 
-    Return the array of the central wavelengths (rounded to 0.1 nm)
-    of the bands described by ``srf_wvl`` and ``rsrf``.
+    Parameters
+    ----------
+    srf_wvl : list of ndarray
+        The SRF wavelengths in nm, one 1-D array per band
+    rsrf : list of ndarray
+        The relative SRF values, one 1-D array per band
+
+    Returns
+    -------
+    ndarray
+        The central wavelengths of the bands in nm, rounded to
+        0.1 nm. It is 1-D.
     """
     nbands = len(srf_wvl)
     bands = []
@@ -290,15 +335,27 @@ def check_input_ckdmip2od(
 ) -> None:
     """Validate the inputs of ckdmip2od.
 
-    Raise NameError if the gas, the wavenumber interval or the
-    number of ckdmip files is invalid.
+    Parameters
+    ----------
+    gas : str
+        The gas name
+    wvn_min, wvn_max : float
+        The wavenumber min and max interval values in cm-1
+    ckdmip_files : list of Path
+        The ckdmip look-up table files of the gas
+
+    Raises
+    ------
+    NameError
+        If the gas, the wavenumber interval or the number of
+        ckdmip files is invalid.
     """
     gas_ok = ['H2O', 'CO2', 'O2', 'O3', 'N2O', 'N2', 'CH4']
 
     if gas not in gas_ok:
         raise NameError(
-            "the gas '", gas,
-            "' is not accepted! Choose between: 'H2O', 'O3', 'CO2', 'O2'"
+            f"the gas '{gas}' is not accepted! Choose between: "
+            "'H2O', 'CO2', 'O2', 'O3', 'N2O', 'N2', 'CH4'"
         )
 
     if (wvn_min < 250 or wvn_max > 50000):
@@ -330,8 +387,11 @@ def ckdmip2od(
     dir_save: str | Path = './',
     float_indexing: str = 'fast',
 ) -> xr.Dataset:
-    """Use ckdmip shortwave idealized look-up tables to generate
-    optical depth for a given atm.
+    """Generate the optical depth LUT of a gas for a given atm.
+
+    The look-up table is built from the CKDMIP shortwave idealized
+    spectra, interpolated on the pressure and temperature profiles
+    of the chosen AFGL atmosphere.
 
     Parameters
     ----------
@@ -339,7 +399,7 @@ def ckdmip2od(
         Choose between -> 'H2O', 'CO2', 'O2', 'O3', 'N2O', 'N2',
         'CH4'
     dir_ckdmip : str or Path
-        Directory where are located ckdmip look-up tables
+        Directory where are located the ckdmip look-up tables
     dir_atm : str or Path
         Directory where are located the afgl atmosphere look-up
         tables (see README.md)
@@ -347,10 +407,10 @@ def ckdmip2od(
         Choose between -> 'afglus', 'afglt', 'afglms', 'afglmw',
         'afglss', 'afglsw'
     wvn_min, wvn_max : float, optional
-        Wavenumber min and max interval values
+        Wavenumber min and max interval values in cm-1
     chunk : int, optional
         Number of wavenumber considered at each iteration
-        (wavenumber dim is splited during interpolation)
+        (wavenumber dim is split during interpolation)
     save : bool, optional
         If True, save output in netcdf format
     dir_save : str or Path, optional
@@ -361,9 +421,24 @@ def ckdmip2od(
 
     Returns
     -------
-    L : xr.Dataset
-        Look-up table with the gas optical depth for the specified
-        atmosphere
+    Dataset
+        Xarray dataset containing the gas optical depth look-up
+        table of the specified atmosphere.
+
+        Key variables included:
+
+        - **P_fl**: The full level pressure in Pa [level]
+        - **T_fl**: The full level temperature in K [level]
+        - **P_hl**: The half level pressure in Pa [half_level]
+        - **T_hl**: The half level temperature in K [half_level]
+        - **mole_fraction_fl**: The full level gas mole fraction
+          [level]
+        - **mole_fraction_hl**: The half level gas mole fraction
+          [half_level]
+        - **optical_depth**: The gas optical depth
+          [level, wavenumber]
+        - **z_atm**: The atmosphere altitude profile in km
+          [half_level]
     """
 
     files_name = "ckdmip_idealized_sw_spectra_" + gas.lower() + "_const*.h5"
@@ -397,7 +472,7 @@ def ckdmip2od(
     nmf = len(ckdmip_files)
     M_air = MOLAR_MASS_AIR*1e-3
 
-    z_afgl_hl = afgl_pro['z_atm'].values[:]  # in Km
+    z_afgl_hl = afgl_pro['z_atm'].values[:]  # in km
     n_afgl_hl = len(z_afgl_hl)
     P_afgl_hl = afgl_pro['P'].values[:] * 1e2  # in Pa
     T_afgl_hl = afgl_pro['T'].values[:]
@@ -437,7 +512,7 @@ def ckdmip2od(
         z_afgl_hl, mole_fraction_afgl_hl
     )(z_afgl_fl)
 
-    # Bellow needed for vectorized float indexing
+    # Below needed for vectorized float indexing
     cond = np.logical_and(P_afgl_fl < np.max(P_fl), P_afgl_fl > np.min(P_fl))
     if float_indexing == 'fast':
         idf_pfl = interp1d(P_fl, np.arange(nP))(P_afgl_fl[cond])
@@ -455,7 +530,7 @@ def ckdmip2od(
     with tqdm(total=int(reste/nwc) + 1) as bar_wavn:
         while (reste > 0):
             bar_wavn.set_description(
-                "Convert to extinction coeff in m2 Kg-1 and "
+                "Convert to extinction coeff in m2 kg-1 and "
                 "interpolate..."
             )
             reste = reste - nwc
@@ -557,7 +632,7 @@ def ckdmip2od(
             bar_lvl.update(1)
     print("reconverted to optical depth.")
 
-    # Fourth step: Create final LUT and optionnaly save
+    # Fourth step: Create final LUT and optionally save
     ds = xr.Dataset(coords={
         'level': (np.arange(n_afgl_hl-1)+1).astype(np.int32),
         'half_level': (np.arange(n_afgl_hl)+1).astype(np.int32),
@@ -593,7 +668,7 @@ def ckdmip2od(
     )
     ds['z_atm'] = xr.DataArray(
         z_afgl_hl, dims=['half_level'],
-        attrs={'units': 'km', 'description': 'atmosphere height profil'},
+        attrs={'units': 'km', 'description': 'atmosphere height profile'},
     )
     date = datetime.now().strftime("%Y-%m-%d")
     ds.attrs = {
@@ -619,9 +694,9 @@ class Gatiab:
 
     Parameters
     ----------
-    od_lut : str or Path or xr.Dataset
-        Path or xr.Dataset of the gas optical depth LUT (created
-        using ckdmip2od function)
+    od_lut : str, Path or Dataset
+        The path or the dataset of the gas optical depth LUT
+        (created using the ckdmip2od function)
     """
 
     def __init__(self, od_lut: str | Path | xr.Dataset) -> None:
@@ -635,9 +710,9 @@ class Gatiab:
         self.atm: str = od.attrs['experiment'].split(' ')[0]
         self.wavenumber: NDArray = od['wavenumber'].values[:]  # in cm-1
         self.half_level: NDArray = od['half_level'].values[:]
-        self.P_hl: NDArray = od['P_hl'].values[:]  # air pressure profil
-        self.T_hl: NDArray = od['T_hl'].values[:]  # temperature profil
-        # z profil as function of half_level
+        self.P_hl: NDArray = od['P_hl'].values[:]  # pressure profile
+        self.T_hl: NDArray = od['T_hl'].values[:]  # temperature profile
+        # z profile as function of half_level
         self.z_atm: NDArray = od['z_atm'].values[:]
         self.mole_fraction_hl: NDArray = od['mole_fraction_hl'].values[:]
         # half level gas pressure
@@ -648,9 +723,13 @@ class Gatiab:
         )
 
     def get_gas_content(self) -> float:
-        """Compute the gas content.
+        """Compute the columnar gas content.
 
-        In DU for O3, in g cm-2 for other gas.
+        Returns
+        -------
+        float
+            The gas content, in DU for O3 and in g cm-2 for the
+            other gases
         """
         if self.gas == 'O3':
             gas_content = (1/2.6867e16) * (
@@ -663,7 +742,13 @@ class Gatiab:
         return cast(float, gas_content)
 
     def print_gas_content(self, fmt: str = '%.3F') -> None:
-        """Print the gas content with its unit."""
+        """Print the gas content with its unit.
+
+        Parameters
+        ----------
+        fmt : str, optional
+            The format used to print the gas content value
+        """
         if self.gas == 'O3':
             print(
                 "gas content (" + self.gas + ") = "
@@ -685,22 +770,23 @@ class Gatiab:
         save: bool = False,
         dir_save: str | Path = './',
     ) -> xr.Dataset:
-        """Compute gaseous transmissions.
+        """Compute the gaseous transmissions.
 
         Parameters
         ----------
-        gas_content : np.ndarray
-            Gas content, in Dobson for O3 and in g cm-2 for other
-            gas
-        air_mass : np.ndarray
-            Ratio of slant path optical depth and vertical optical
-            depth
-        p0 : np.ndarray
-            Ground pressure(s) value(s) in hPa
-        srf_wvl : list
-            SRF wavelengths np.ndarray into an iband list
-        rsrf : list
-            relative SRF values np.ndarray into an iband list
+        gas_content : ndarray
+            The gas content values, in Dobson for O3 and in
+            g cm-2 for the other gases. It must be 1-D.
+        air_mass : ndarray
+            The airmass values i.e. the ratios of slant path
+            optical depth and vertical optical depth. It must be
+            1-D.
+        p0 : ndarray
+            The ground pressure values in hPa. It must be 1-D.
+        srf_wvl : list of ndarray
+            The SRF wavelengths in nm, one 1-D array per band
+        rsrf : list of ndarray
+            The relative SRF values, one 1-D array per band
         save : bool, optional
             If True, save output in netcdf format
         dir_save : str or Path, optional
@@ -709,10 +795,20 @@ class Gatiab:
 
         Returns
         -------
-        L : xr.Dataset
-            Look-up table with the gas transmission as function of
-            the instrument band, airmass, gas content and ground
-            level pressure
+        Dataset
+            Xarray dataset containing the gas transmission look-up
+            table as function of the instrument band, the gas
+            content, the airmass and the ground level pressure.
+
+            Key variables included:
+
+            - **trans**: The gas transmission [lambda, U, M, p0]
+            - **lambda**: The instrument averaged bands in nm
+            - **U**: The total column content of the gas, in
+              Dobson for O3 and in g cm-2 for the other gases
+            - **M**: The airmass i.e. the ratio of slant path
+              optical depth and vertical optical depth
+            - **p0**: The pressure at ground level in hPa
         """
 
         n_U = len(gas_content)
@@ -885,22 +981,25 @@ class Gatiab:
         save: bool = False,
         dir_save: str | Path = './',
     ) -> None:
-        """Update the gas optical depth LUT with a new columnar gas
-        content.
-
-        - Update self.od, self.mole_fraction_hl and
-          self.dens_gas_hl
+        """Rescale the optical depth LUT to a new columnar content.
 
         Parameters
         ----------
         gas_content : float
-            Gas content, in Dobson for O3 and in g cm-2 for other
-            gas
+            The gas content, in Dobson for O3 and in g cm-2 for
+            the other gases
         save : bool, optional
             If True, save output in netcdf format
         dir_save : str or Path, optional
             Output directory where to save the updated optical
             depth lut
+
+        Notes
+        -----
+        The method returns nothing but updates the od attribute
+        (its variables optical_depth, mole_fraction_fl and
+        mole_fraction_hl), along with the mole_fraction_hl and
+        dens_gas_hl attributes.
         """
 
         # convert to abs coeff then interpolate
@@ -987,7 +1086,7 @@ class Gatiab:
                 os.remove(path_to_file)
             ds.to_netcdf(path_to_file)
 
-        # Update the attributs
+        # Update the attributes
         self.od = ds
         self.mole_fraction_hl = mole_fraction_hl
         self.dens_gas_hl = dens_gas_U
