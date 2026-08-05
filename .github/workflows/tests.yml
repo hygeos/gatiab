@@ -1,0 +1,7 @@
+name: Tests
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    uses: hygeos/reusable-workflows/.github/workflows/tests.yml@v1
