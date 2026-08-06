@@ -1,0 +1,7 @@
+name: Ruff
+
+on: [push, pull_request]
+
+jobs:
+  ruff:
+    uses: hygeos/reusable-workflows/.github/workflows/ruff.yml@v1
